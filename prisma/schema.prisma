@@ -1,0 +1,2451 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model access_tokens {
+  id                Int       @id @default(autoincrement())
+  uuid              String    @unique
+  token             String    @unique
+  userUuid          String
+  usedAt            DateTime?
+  expiresAt         DateTime?
+  allowedOperations String[]
+  terminalOperation String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime
+
+  @@index([userUuid])
+}
+
+model ai_mentor_matches {
+  id                        Int                         @id @default(autoincrement())
+  uuid                      String                      @unique
+  engagementProposalUuid    String?
+  inputUserUuids            String[]
+  userPrompt                String?
+  createdBy                 String
+  createdAt                 DateTime                    @default(now())
+  updatedAt                 DateTime
+  processingCompletedAt     DateTime?
+  engagement_proposals      engagement_proposals?       @relation(fields: [engagementProposalUuid], references: [uuid])
+  ai_mentor_recommendations ai_mentor_recommendations[]
+
+  @@index([engagementProposalUuid])
+}
+
+model ai_mentor_recommendations {
+  id                Int               @id @default(autoincrement())
+  uuid              String            @unique
+  aiMentorMatchUuid String
+  userUuid          String
+  rank              Int
+  reasoning         String[]
+  createdAt         DateTime          @default(now())
+  ai_mentor_matches ai_mentor_matches @relation(fields: [aiMentorMatchUuid], references: [uuid])
+}
+
+model artifacts {
+  id                          Int                          @id @default(autoincrement())
+  uuid                        String                       @unique
+  artifactableName            String
+  artifactableUuid            String
+  documentUuid                String
+  createdAt                   DateTime                     @default(now())
+  updatedAt                   DateTime
+  artifactCreatedAt           DateTime                     @default(now())
+  category                    String?
+  timeless_skills_submissions timeless_skills_submissions?
+
+  @@index([artifactableName, artifactableUuid])
+}
+
+model attendances {
+  id                Int             @id @default(autoincrement())
+  uuid              String          @unique
+  engagementUuid    String
+  calendarEventUuid String
+  userUuid          String
+  attendanceStatus  String
+  calendar_events   calendar_events @relation(fields: [calendarEventUuid], references: [uuid])
+
+  @@unique([calendarEventUuid, userUuid])
+  @@index([userUuid, engagementUuid, attendanceStatus])
+}
+
+model availability_submissions {
+  id         Int      @id @default(autoincrement())
+  uuid       String   @unique
+  createdAt  DateTime @default(now())
+  userUuid   String
+  timezone   String
+  monday     String[]
+  tuesday    String[]
+  wednesday  String[]
+  thursday   String[]
+  friday     String[]
+  saturday   String[]
+  sunday     String[]
+  maxMentees Int
+  maxHours   Int
+  users      users    @relation(fields: [userUuid], references: [uuid])
+
+  @@index([userUuid])
+}
+
+model bill_items {
+  uuid        String   @unique
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime
+  amount      Float
+  billUuid    String
+  description String?
+  bills       bills    @relation(fields: [billUuid], references: [uuid])
+
+  @@index([billUuid])
+}
+
+model bills {
+  id               Int          @id @default(autoincrement())
+  uuid             String       @unique
+  stripeAccountId  String
+  stripeTransferId String?
+  amount           Float
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime
+  period           Int
+  bill_items       bill_items[]
+
+  @@index([stripeAccountId])
+  @@index([stripeTransferId])
+}
+
+model calendar_event_logs {
+  id                Int             @id @default(autoincrement())
+  uuid              String          @unique
+  calendarEventUuid String
+  previousStatus    String
+  newStatus         String
+  oldDuration       Int
+  newDuration       Int
+  oldStart          DateTime
+  newStart          DateTime
+  oldEnd            DateTime
+  newEnd            DateTime
+  changedByUuid     String?
+  changeReasonNote  String
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime
+  calendar_events   calendar_events @relation(fields: [calendarEventUuid], references: [uuid])
+  users             users?          @relation(fields: [changedByUuid], references: [uuid])
+
+  @@index([calendarEventUuid])
+}
+
+model calendar_events {
+  id                             Int                   @id @default(autoincrement())
+  uuid                           String                @unique
+  title                          String
+  start                          DateTime              @default(now())
+  end                            DateTime              @default(now())
+  duration                       Int
+  engagementUuid                 String
+  description                    String?
+  sellRate                       Float
+  buyRate                        Float
+  status                         String
+  reminderSentAt                 DateTime?
+  createdAt                      DateTime              @default(now())
+  updatedAt                      DateTime
+  cancelledAt                    DateTime?
+  cancellationNote               String?
+  cancelledBy                    String?
+  googleCalendarId               String?
+  completedAt                    DateTime?
+  ai_content_used_percentage     Float?                @default(0)
+  createdByUserUuid              String?
+  milestonesProcessedAt          DateTime?
+  mentorSessionAdditionalContext String?
+  mentorSessionRating            Int?
+  milestonesProcessingAt         DateTime?
+  attendances                    attendances[]
+  calendar_event_logs            calendar_event_logs[]
+  users                          users?                @relation(fields: [createdByUserUuid], references: [uuid])
+  engagements                    engagements           @relation(fields: [engagementUuid], references: [uuid])
+  journal_entries                journal_entries[]
+  session_assets                 session_assets?
+
+  @@index([createdAt])
+  @@index([engagementUuid])
+  @@index([reminderSentAt])
+  @@index([start, end])
+  @@index([status])
+}
+
+model calendar_providers {
+  id                    Int                  @id @default(autoincrement())
+  uuid                  String               @unique
+  providerName          String
+  profileName           String
+  profileId             String
+  schedulingAccountUuid String?
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime
+  scheduling_accounts   scheduling_accounts? @relation(fields: [schedulingAccountUuid], references: [uuid])
+
+  @@index([profileId])
+}
+
+model call_sku_order_prefills {
+  id                     Int              @id @default(autoincrement())
+  uuid                   String           @unique
+  callTranscriptUuid     String
+  skuOfferingType        String?
+  skuAddonSelections     String[]
+  topicUuid              String?
+  disciplineUuid         String?
+  skuEngagementGoals     String[]
+  createdAt              DateTime         @default(now())
+  updatedAt              DateTime
+  callStudentProfileUuid String?
+  successDescription     String?
+  successMetrics         String[]
+  availabilityNotes      String?
+  skuStudentArchetypes   String[]
+  processingCompletedAt  DateTime?
+  commitmentPeriod       String?
+  engagementOverview     String?
+  engagementTitle        String?
+  keyDates               Json[]
+  learningGoals          Json[]
+  call_transcripts       call_transcripts @relation(fields: [callTranscriptUuid], references: [uuid])
+}
+
+model call_student_profiles {
+  id                        Int              @id @default(autoincrement())
+  uuid                      String           @unique
+  callTranscriptUuid        String
+  fullName                  String?
+  grade                     String?
+  school                    String?
+  city                      String?
+  gender                    String?
+  learningDifferences       String[]
+  studentDescription        String[]
+  favoriteSubjects          String[]
+  challengingSubjects       String[]
+  academicGrowthAreas       String[]
+  extracurriculars          String[]
+  hobbies                   String[]
+  personalities             String[]
+  superpowers               String[]
+  personalGrowthAreas       String[]
+  careerAspirations         String[]
+  mentorPersonalities       String[]
+  mentorQualities           String[]
+  successDescription        String?
+  successMetrics            String[]
+  createdAt                 DateTime         @default(now())
+  updatedAt                 DateTime
+  studentProfileHistoryUuid String?
+  processingCompletedAt     DateTime?
+  academicNotes             String[]
+  additionalNotes           String[]
+  futureCareers             String[]
+  futureMajors              String[]
+  interests                 String[]
+  studentOverview           String?
+  call_transcripts          call_transcripts @relation(fields: [callTranscriptUuid], references: [uuid])
+}
+
+model call_transcripts {
+  id                      Int                       @id @default(autoincrement())
+  uuid                    String                    @unique
+  title                   String
+  meetingTranscript       String?
+  studentNames            String[]
+  skuDescriptions         String[]
+  createdBy               String
+  createdAt               DateTime                  @default(now())
+  updatedAt               DateTime
+  transcriptFileUrl       String?
+  salesNotes              String?
+  call_sku_order_prefills call_sku_order_prefills[]
+  call_student_profiles   call_student_profiles[]
+
+  @@index([createdBy, createdAt])
+  @@index([title, createdAt])
+}
+
+model compliance_profile_histories {
+  id                             Int      @id @default(autoincrement())
+  uuid                           String   @unique
+  userUuid                       String
+  taskCompletedOnTimeCount       Int?
+  taskCompletedLateCount         Int?
+  totalTasks                     Int?
+  botJoinedCount                 Int?
+  botMissedCount                 Int?
+  marketingProfileComplete       Boolean?
+  schedulingAvailabilityComplete Boolean?
+  matchingCriteriaComplete       Boolean?
+  createdAt                      DateTime @default(now())
+  totalCompletedCalendarEvents   Int?
+  users                          users    @relation(fields: [userUuid], references: [uuid])
+
+  @@index([userUuid])
+}
+
+model compliance_profiles {
+  id                             Int      @id @default(autoincrement())
+  uuid                           String   @unique
+  userUuid                       String   @unique
+  taskCompletedOnTimeCount       Int?
+  taskCompletedLateCount         Int?
+  totalTasks                     Int?
+  botJoinedCount                 Int?
+  botMissedCount                 Int?
+  marketingProfileComplete       Boolean?
+  schedulingAvailabilityComplete Boolean?
+  matchingCriteriaComplete       Boolean?
+  createdAt                      DateTime @default(now())
+  updatedAt                      DateTime
+  totalCompletedCalendarEvents   Int?
+  users                          users    @relation(fields: [userUuid], references: [uuid])
+
+  @@index([userUuid])
+}
+
+model conversations {
+  id                    Int        @id @default(autoincrement())
+  uuid                  String     @unique
+  userUuids             String[]
+  createdAt             DateTime   @default(now())
+  updatedAt             DateTime
+  cometConversationId   String     @unique
+  cometConversationType String
+  cometGuid             String?    @unique
+  messages              messages[]
+
+  @@index([userUuids])
+}
+
+model credit_entries {
+  id                           Int              @id @default(autoincrement())
+  type                         String
+  description                  String
+  amount                       Int              @default(0)
+  createdByUuid                String
+  createdAt                    DateTime         @default(now())
+  updatedAt                    DateTime
+  paymentProfileUuid           String
+  journalEntryUuid             String?          @unique
+  creditBalanceAfterAdjustment Int
+  uuid                         String           @unique
+  journal_entries              journal_entries? @relation(fields: [journalEntryUuid], references: [uuid])
+  payment_profiles             payment_profiles @relation(fields: [paymentProfileUuid], references: [uuid])
+}
+
+model customer_end_engagement_form_responses {
+  id                                Int                                @id @default(autoincrement())
+  uuid                              String                             @unique
+  reason                            String
+  additionalContext                 String
+  createdAt                         DateTime                           @default(now())
+  updatedAt                         DateTime
+  endDate                           DateTime?
+  engagement_status_change_requests engagement_status_change_requests?
+}
+
+model customer_pause_engagement_form_responses {
+  id                                Int                                @id @default(autoincrement())
+  uuid                              String                             @unique
+  reason                            String
+  additionalContext                 String
+  pauseDate                         DateTime
+  resumeDate                        DateTime
+  createdAt                         DateTime                           @default(now())
+  updatedAt                         DateTime
+  engagement_status_change_requests engagement_status_change_requests?
+}
+
+model decision_trees {
+  id                    Int         @id @default(autoincrement())
+  uuid                  String      @unique
+  decisionTree          Json[]
+  engagementUuid        String
+  prompt                String?
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime
+  processingCompletedAt DateTime?
+  engagements           engagements @relation(fields: [engagementUuid], references: [uuid])
+}
+
+model delighted_responses {
+  id               Int      @id @default(autoincrement())
+  delightedEventId String   @unique
+  data             Json
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime
+}
+
+model disciplines {
+  id           Int           @id @default(autoincrement())
+  uuid         String        @unique
+  offeringType String
+  name         String
+  createdAt    DateTime      @default(now())
+  engagements  engagements[]
+  topics       topics[]
+}
+
+model documents {
+  id             Int       @id @default(autoincrement())
+  uuid           String    @unique
+  userUuid       String
+  type           String
+  url            String
+  title          String
+  description    String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime
+  deletedAt      DateTime?
+  uploadcareUuid String?
+  isPublic       Boolean   @default(true)
+  users          users     @relation(fields: [userUuid], references: [uuid])
+
+  @@index([userUuid])
+}
+
+model early_engagement_self_evaluation_typeform_submissions {
+  id                               Int      @id @default(autoincrement())
+  uuid                             String   @unique
+  engagementUuid                   String
+  mentorFirstName                  String
+  mentorFullName                   String
+  studentFirstName                 String
+  studentFullName                  String
+  overallMentorshipRating          String
+  personalityFitRating             Int
+  parentCommunicationComfortRating Int
+  learningProgressRating           Int
+  prepTimeMinutes                  Int
+  scheduleConsistencyRating        Int
+  longTermConfidenceRating         Int
+  potentialBarriers                String?
+  supportRequests                  String?
+  createdAt                        DateTime @default(now())
+  updatedAt                        DateTime @default(now())
+}
+
+model earned_incentives {
+  id               Int        @id @default(autoincrement())
+  uuid             String     @unique
+  incentiveUuid    String
+  userUuid         String
+  journalEntryUuid String
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime
+  incentives       incentives @relation(fields: [incentiveUuid], references: [uuid])
+}
+
+model email_messages {
+  id               Int      @id @default(autoincrement())
+  uuid             String   @unique
+  senderUuid       String?
+  text             String
+  html             String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @default(now())
+  spamReport       String
+  spamScore        Float
+  messageId        String
+  conversationUuid String
+
+  @@index([senderUuid])
+}
+
+model engagement_health_report {
+  id                       Int      @id @default(autoincrement())
+  historicalFrequency      Float
+  metInLastTwoWeeks        Boolean
+  metInLastTwoToFourWeeks  Boolean
+  sessionScheduledInFuture Boolean
+  engagementUuid           String   @unique
+  hubspotDealId            String?
+  engagementStatus         String
+  mentorUuid               String
+  studentUuids             String[]
+  guardianUuids            String[]
+  createdAt                DateTime @default(now())
+}
+
+model engagement_insights_processed {
+  id               Int      @id @default(autoincrement())
+  uuid             String   @unique
+  engagementUuid   String
+  summary          String?
+  sessionSummaries String[]
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime
+}
+
+model engagement_metrics {
+  id                      Int      @id @default(autoincrement())
+  uuid                    String   @unique
+  engagementUuid          String?
+  deadSpaceSeconds        Int      @default(0)
+  deadSpaceSecondsPercent Int      @default(0)
+  mentorTalkTime          Int      @default(0)
+  mentorTalkTimePercent   Int      @default(0)
+  menteeTalkTime          Int      @default(0)
+  menteeTalkTimePercent   Int      @default(0)
+  completedCalendarEvents Int      @default(0)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime
+}
+
+model engagement_milestones {
+  id                 Int       @id @default(autoincrement())
+  uuid               String    @unique
+  calendarEventUuids String[]
+  icon               String
+  title              String
+  summary            String
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime
+  engagementUuid     String
+  achievedAt         DateTime
+  aiAchievedAt       DateTime?
+  aiIcon             String?
+  aiSummary          String?
+  aiTitle            String?
+  deletedAt          DateTime?
+  reviewedAt         DateTime?
+}
+
+model engagement_milestones_temps {
+  id             Int       @id @default(autoincrement())
+  uuid           String    @unique
+  engagementUuid String
+  icon           String
+  aiIcon         String?
+  title          String
+  aiTitle        String?
+  summary        String
+  aiSummary      String?
+  achievedAt     DateTime
+  aiAchievedAt   DateTime?
+  reviewedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime
+  deletedAt      DateTime?
+}
+
+model engagement_pause_requests {
+  id             Int         @id @default(autoincrement())
+  uuid           String      @unique
+  reason         String
+  pauseDate      DateTime
+  resumeDate     DateTime
+  engagementUuid String
+  createdBy      String
+  createdAt      DateTime    @default(now())
+  engagements    engagements @relation(fields: [engagementUuid], references: [uuid])
+}
+
+model engagement_proposals {
+  id                        Int                 @id @default(autoincrement())
+  uuid                      String              @unique
+  title                     String?
+  matchRequestUuid          String?
+  hubspotDealId             String?
+  offeringType              String?
+  goals                     String?
+  sellRate                  Float?
+  buyRate                   Float?
+  topicUuid                 String?
+  guardianName              String?
+  guardianUuid              String?
+  studentNames              String[]
+  studentUuids              String[]
+  studentProfileUrls        String[]
+  deletedAt                 DateTime?
+  acceptedAt                DateTime?
+  createdAt                 DateTime            @default(now())
+  updatedAt                 DateTime
+  createdBy                 String
+  studentGrades             String[]
+  cadence                   String?
+  productAmount             Int?
+  productId                 String?
+  paymentStatus             Boolean             @default(false)
+  productName               String?
+  commitmentPeriod          String?
+  dealOwnerUuid             String?
+  schedulingIncentivesOptIn Boolean             @default(false)
+  curriculum                String?
+  engagementType            String?
+  studentProfileUuids       String[]
+  addOnSelections           String[]
+  engagementGoals           String[]
+  studentArchetypes         String[]
+  pitchStatus               String?             @default("OFF")
+  pitchStrategy             String?             @default("CASCADE")
+  rematchEngagementUuid     String?
+  availabilityNotes         String?
+  successMetrics            String[]
+  blastAfterNextCascade     Boolean             @default(false)
+  callTranscriptUuid        String?
+  learningPlanUuid          String?             @unique
+  nonAcceptsUntilBlast      Int?
+  messagingOptIn            Boolean             @default(false)
+  ai_mentor_matches         ai_mentor_matches[]
+  users                     users?              @relation(fields: [guardianUuid], references: [uuid])
+  learning_plans            learning_plans?     @relation(fields: [learningPlanUuid], references: [uuid])
+  topics                    topics?             @relation(fields: [topicUuid], references: [uuid])
+  engagements               engagements[]
+  key_dates                 key_dates[]
+  learning_planners         learning_planners?
+  mentor_proposals          mentor_proposals[]
+  order_analytics           order_analytics?
+
+  @@index([createdBy])
+  @@index([dealOwnerUuid, pitchStrategy, acceptedAt, deletedAt, createdAt])
+  @@index([deletedAt])
+  @@index([guardianName, studentNames])
+  @@index([guardianUuid])
+  @@index([pitchStrategy, acceptedAt, deletedAt, createdAt])
+  @@index([title])
+}
+
+model engagement_recaps {
+  id                 Int         @id @default(autoincrement())
+  uuid               String      @unique
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @default(now())
+  contentGeneratedAt DateTime?
+  engagementUuid     String
+  cohort             String
+  userUuid           String
+  context            String?
+  content            Json?
+  engagements        engagements @relation(fields: [engagementUuid], references: [uuid])
+
+  @@unique([engagementUuid, cohort, userUuid])
+}
+
+model engagement_report_goals {
+  id                   Int                @id @default(autoincrement())
+  uuid                 String             @unique
+  content              String?
+  status               String?
+  targetCompletionDate DateTime?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime
+  engagementReportUuid String
+  aiContent            String?
+  contentAIPercentage  Float?
+  engagement_reports   engagement_reports @relation(fields: [engagementReportUuid], references: [uuid])
+}
+
+model engagement_report_user_feedback {
+  id                   Int                @id @default(autoincrement())
+  uuid                 String             @unique
+  question             String
+  sentiment            String
+  reasoning            String?
+  userUuid             String
+  engagementReportUuid String
+  engagement_reports   engagement_reports @relation(fields: [engagementReportUuid], references: [uuid])
+  users                users              @relation(fields: [userUuid], references: [uuid])
+
+  @@unique([engagementReportUuid, userUuid])
+}
+
+model engagement_reports {
+  id                                Int                               @id @default(autoincrement())
+  uuid                              String                            @unique
+  cohort                            String
+  title                             String
+  studentFullName                   String
+  studentGrade                      String?
+  mentorFirstName                   String
+  numberOfHoursMet                  Int
+  topic                             String
+  contentLastChangedAt              DateTime?
+  publishedAt                       DateTime?
+  createdAt                         DateTime                          @default(now())
+  updatedAt                         DateTime
+  engagementUuid                    String
+  studentProfilePictureUrl          String
+  aiDemonstratedStrengths           String?
+  aiOpportunityForGrowth            String?
+  aiPersonalNote                    String?
+  aiRecommendation                  String?
+  demonstratedStrengths             String?
+  demonstratedStrengthsAIPercentage Float?
+  opportunityForGrowth              String?
+  opportunityForGrowthAIPercentage  Float?
+  personalNote                      String?
+  personalNoteAIPercentage          Float?
+  recommendation                    String?
+  recommendationAIPercentage        Float?
+  engagement_report_goals           engagement_report_goals[]
+  engagement_report_user_feedback   engagement_report_user_feedback[]
+  engagements                       engagements                       @relation(fields: [engagementUuid], references: [uuid])
+
+  @@index([engagementUuid])
+}
+
+model engagement_status_change_requests {
+  id                                        Int                                        @id @default(autoincrement())
+  uuid                                      String                                     @unique
+  reason                                    String
+  engagementUuid                            String
+  completedAt                               DateTime?
+  createdBy                                 String
+  createdAt                                 DateTime                                   @default(now())
+  updatedAt                                 DateTime
+  engagementStatus                          String
+  customerEndEngagementFormResponseUuid     String?                                    @unique
+  customerPauseEngagementFormResponseUuid   String?                                    @unique
+  endRequestUuid                            String?                                    @unique
+  pauseRequestUuid                          String?                                    @unique
+  requestedStatus                           String
+  customer_end_engagement_form_responses    customer_end_engagement_form_responses?    @relation(fields: [customerEndEngagementFormResponseUuid], references: [uuid])
+  customer_pause_engagement_form_responses  customer_pause_engagement_form_responses?  @relation(fields: [customerPauseEngagementFormResponseUuid], references: [uuid])
+  mentor_end_request                        mentor_end_request?                        @relation(fields: [endRequestUuid], references: [uuid])
+  engagements                               engagements                                @relation(fields: [engagementUuid], references: [uuid])
+  mentor_pause_request                      mentor_pause_request?                      @relation(fields: [pauseRequestUuid], references: [uuid])
+  mentor_seasonal_engagement_form_responses mentor_seasonal_engagement_form_responses?
+  pause_engagement_issues                   pause_engagement_issues?
+
+  @@index([engagementUuid])
+}
+
+model engagement_stories {
+  id                          Int                           @id @default(autoincrement())
+  uuid                        String                        @unique
+  initialDescription          String                        @default("")
+  perfectMatch                Json[]
+  skillsDeveloped             String[]
+  challengesOvercome          String[]
+  whatsNext                   String                        @default("")
+  mentorName                  String                        @default("")
+  mentorSchool                String                        @default("")
+  mentorMajor                 String                        @default("")
+  mentorTeachingStyles        String[]
+  mentorExpertise             String[]
+  menteeName                  String                        @default("")
+  menteeGrade                 String                        @default("")
+  menteeSchool                String                        @default("")
+  menteePersonalities         String[]
+  menteeInterests             String[]
+  numberOfSessions            Int                           @default(0)
+  createdAt                   DateTime                      @default(now())
+  updatedAt                   DateTime
+  engagementUuid              String
+  menteeProfilePictureUrl     String                        @default("")
+  mentorProfilePictureUrl     String                        @default("")
+  engagementCreatedAt         DateTime
+  engagementStatus            String
+  status                      String                        @default("READY")
+  discipline                  String                        @default("")
+  engagementCompletedAt       DateTime?
+  title                       String                        @default("")
+  topic                       String                        @default("")
+  aiPersonalNote              String?
+  personalNote                String?
+  personalNoteAIPercentage    Float?
+  publishedAt                 DateTime?
+  cohort                      String?
+  conceptsLearned             String[]
+  engagements                 engagements                   @relation(fields: [engagementUuid], references: [uuid])
+  engagement_story_milestones engagement_story_milestones[]
+
+  @@unique([engagementUuid, cohort])
+}
+
+model engagement_story_milestones {
+  id                  Int                @id @default(autoincrement())
+  uuid                String             @unique
+  engagementStoryUuid String
+  icon                String
+  title               String
+  summary             String
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime
+  achievedAt          DateTime
+  engagement_stories  engagement_stories @relation(fields: [engagementStoryUuid], references: [uuid])
+}
+
+model engagements {
+  id                                Int                                 @id @default(autoincrement())
+  uuid                              String                              @unique
+  createdAt                         DateTime                            @default(now())
+  updatedAt                         DateTime
+  title                             String
+  contractType                      String
+  description                       String
+  sellRate                          Float
+  buyRate                           Float
+  tags                              String[]
+  status                            String
+  completedAt                       DateTime?
+  disciplineUuid                    String?
+  topicUuid                         String?
+  isFinancialAid                    Boolean                             @default(false)
+  zoomJoinUrl                       String?
+  zoomStartUrl                      String?
+  zoomMeetingId                     String?
+  endNotes                          String?
+  endReason                         String?
+  pauseNotes                        String?
+  pauseReason                       String?
+  pausedAt                          DateTime?
+  hubspotDealId                     String?                             @unique
+  lastSyncedToHubspot               DateTime?
+  lastZoomTokenRefresh              DateTime?
+  isPartnership                     Boolean                             @default(false)
+  engagementProposalUuid            String?
+  onboardingCompletedAt             DateTime?
+  isSubscription                    Boolean                             @default(false)
+  completedBy                       String?
+  aiSessionNotesEnabled             Boolean                             @default(true)
+  dealOwnerUuid                     String?
+  pauseEngagementResumeAt           DateTime?
+  isAdhoc                           Boolean                             @default(false)
+  rematchEngagementUuid             String?
+  lastAttachedHubspotDealId         String?
+  learningPlanUuid                  String?                             @unique
+  statusLastUpdatedAt               DateTime                            @default(now())
+  stagnantEngagementExemptUntil     DateTime?
+  cadence                           String                              @default("4")
+  calendar_events                   calendar_events[]
+  decision_trees                    decision_trees[]
+  engagement_pause_requests         engagement_pause_requests[]
+  engagement_recaps                 engagement_recaps[]
+  engagement_reports                engagement_reports[]
+  engagement_status_change_requests engagement_status_change_requests[]
+  engagement_stories                engagement_stories[]
+  disciplines                       disciplines?                        @relation(fields: [disciplineUuid], references: [uuid])
+  engagement_proposals              engagement_proposals?               @relation(fields: [engagementProposalUuid], references: [uuid])
+  learning_plans                    learning_plans?                     @relation(fields: [learningPlanUuid], references: [uuid])
+  topics                            topics?                             @relation(fields: [topicUuid], references: [uuid])
+  incentives                        incentives[]
+  learning_planners                 learning_planners?
+  mentor_cadence_request            mentor_cadence_request[]
+  mentor_rematch_request            mentor_rematch_request[]
+  pause_engagement_issues           pause_engagement_issues[]
+  stagnant_engagement_issues        stagnant_engagement_issues[]
+  subscriptions                     subscriptions?
+  users_engagements                 users_engagements[]
+}
+
+model feature_flags {
+  id          Int        @id @default(autoincrement())
+  uuid        String     @unique
+  name        String     @unique
+  description String
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime
+  allowedList String[]
+  deniedList  String[]
+  percentage  Int        @default(0)
+  switchType  SwitchType
+}
+
+model feedback {
+  id               Int      @id @default(autoincrement())
+  uuid             String   @unique
+  userUuid         String
+  feedbackableName String
+  feedbackableUuid String
+  feedback         Boolean
+  feedbackText     String?
+  createdAt        DateTime @default(now())
+  users            users    @relation(fields: [userUuid], references: [uuid])
+
+  @@index([feedbackableUuid])
+  @@index([userUuid])
+}
+
+model guardian_students {
+  uuid                                        String   @unique
+  guardianUuid                                String
+  studentUuid                                 String
+  createdAt                                   DateTime @default(now())
+  updatedAt                                   DateTime @default(now())
+  users_guardian_students_guardianUuidTousers users    @relation("guardian_students_guardianUuidTousers", fields: [guardianUuid], references: [uuid])
+  users_guardian_students_studentUuidTousers  users    @relation("guardian_students_studentUuidTousers", fields: [studentUuid], references: [uuid])
+
+  @@id([guardianUuid, studentUuid])
+  @@index([guardianUuid])
+  @@index([studentUuid])
+}
+
+model incentives {
+  id                Int                 @id @default(autoincrement())
+  uuid              String              @unique
+  type              String
+  amount            Int                 @default(0)
+  engagementUuid    String
+  progressCounter   Int                 @default(0)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime
+  earned_incentives earned_incentives[]
+  engagements       engagements         @relation(fields: [engagementUuid], references: [uuid])
+}
+
+model internal_profile_notes {
+  id            Int      @id @default(autoincrement())
+  uuid          String   @unique
+  userUuid      String
+  content       String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime
+  createdByUuid String
+  users         users    @relation(fields: [userUuid], references: [uuid])
+
+  @@index([createdAt])
+  @@index([userUuid])
+}
+
+model invoice_items {
+  id          Int       @id @default(autoincrement())
+  uuid        String    @unique
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime
+  amount      Float
+  description String
+  invoiceUuid String
+  status      String    @default("active")
+  voidReason  String?
+  voidedAt    DateTime?
+  voidedBy    String?
+  createdBy   String?
+  invoices    invoices  @relation(fields: [invoiceUuid], references: [uuid])
+
+  @@index([invoiceUuid])
+}
+
+model invoices {
+  id                Int             @id @default(autoincrement())
+  uuid              String          @unique
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime
+  stripeCustomerId  String
+  stripeInvoiceId   String?
+  allItemsPopulated Boolean
+  status            InvoiceStatus
+  stripeSyncStatus  InvoiceStatus?
+  period            Int
+  voidReason        String?
+  voidedAt          DateTime?
+  voidedBy          String?
+  invoice_items     invoice_items[]
+}
+
+model journal_entries {
+  id                  Int              @id @default(autoincrement())
+  uuid                String           @unique
+  userUuid            String
+  calendarEventUuid   String?
+  name                String
+  description         String
+  amount              Float
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime
+  stripeInvoiceItemId String?
+  stripeInvoiceId     String?
+  billItemUuid        String?
+  credit_entries      credit_entries?
+  calendar_events     calendar_events? @relation(fields: [calendarEventUuid], references: [uuid])
+  users               users            @relation(fields: [userUuid], references: [uuid])
+
+  @@index([billItemUuid, createdAt])
+  @@index([calendarEventUuid, name])
+  @@index([createdAt])
+  @@index([name])
+  @@index([userUuid, name, stripeInvoiceItemId])
+}
+
+model key_dates {
+  id                     Int                  @id @default(autoincrement())
+  uuid                   String               @unique
+  title                  String
+  date                   DateTime
+  engagementProposalUuid String
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime
+  engagement_proposals   engagement_proposals @relation(fields: [engagementProposalUuid], references: [uuid])
+
+  @@index([engagementProposalUuid])
+}
+
+model learning_plan_histories {
+  id                         Int               @id @default(autoincrement())
+  uuid                       String            @unique
+  learningGoal               String
+  learningGoals              Json[]
+  monthlyRoadmap             Json[]
+  weeklyRoadmap              Json[]
+  createdBy                  String
+  learningPlanUuid           String
+  createdAt                  DateTime          @default(now())
+  updatedAt                  DateTime
+  roadmapFollowed            Boolean?
+  changeNotes                String?
+  completedCalendarEventUuid String?
+  learning_plans             learning_plans    @relation(fields: [learningPlanUuid], references: [uuid])
+  session_agendas            session_agendas[]
+
+  @@index([learningPlanUuid])
+}
+
+model learning_plan_prompt_requests {
+  id               Int            @id @default(autoincrement())
+  uuid             String         @unique
+  learningGoal     String
+  learningGoals    Json[]
+  monthlyRoadmap   Json[]
+  weeklyRoadmap    Json[]
+  status           String         @default("DONE")
+  learningPlanUuid String         @unique
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime
+  changeNotes      String?
+  learning_plans   learning_plans @relation(fields: [learningPlanUuid], references: [uuid])
+}
+
+model learning_planners {
+  id                     Int                   @id @default(autoincrement())
+  uuid                   String                @unique
+  createdAt              DateTime              @default(now())
+  updatedAt              DateTime
+  submittedAt            DateTime?
+  learningPlannerType    String
+  learningPlannerUrl     String?
+  engagementUuid         String?               @unique
+  engagementProposalUuid String?               @unique
+  googleFileId           String?
+  engagement_proposals   engagement_proposals? @relation(fields: [engagementProposalUuid], references: [uuid])
+  engagements            engagements?          @relation(fields: [engagementUuid], references: [uuid])
+}
+
+model learning_plans {
+  id                            Int                            @id @default(autoincrement())
+  uuid                          String                         @unique
+  title                         String
+  studentOverview               String
+  engagementOverview            String
+  requirements                  String[]
+  learningGoal                  String
+  learningGoals                 Json[]
+  monthlyRoadmap                Json[]
+  weeklyRoadmap                 Json[]
+  firstSessionStructure         Json[]
+  sessionStructure              Json[]
+  promptAddOn                   String?
+  status                        String                         @default("READY")
+  createdAt                     DateTime                       @default(now())
+  updatedAt                     DateTime
+  engagement_proposals          engagement_proposals?
+  engagements                   engagements?
+  learning_plan_histories       learning_plan_histories[]
+  learning_plan_prompt_requests learning_plan_prompt_requests?
+}
+
+model legacy_pitch_response_rollups {
+  id            Int      @id @default(autoincrement())
+  uuid          String   @unique
+  mentorUuid    String   @unique
+  declinedCount Int      @default(0)
+  acceptedCount Int      @default(0)
+  missedCount   Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @default(now())
+}
+
+model marketing_profiles {
+  id                      Int      @id @default(autoincrement())
+  uuid                    String   @unique
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime
+  userUuid                String   @unique
+  googleAnalyticsClientId String?
+  utmCampaign             String?
+  utmSource               String?
+  utmMedium               String?
+  utmContent              String?
+  utmTerm                 String?
+  users                   users    @relation(fields: [userUuid], references: [uuid])
+}
+
+model match_fitness_nps_typeform_submissions {
+  id               Int      @id @default(autoincrement())
+  uuid             String   @unique
+  netPromoterScore Int
+  engagementUuid   String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @default(now())
+}
+
+model match_request_learning_proposals {
+  id                 Int            @id @default(autoincrement())
+  uuid               String         @unique
+  matchRequestUuid   String         @unique
+  prompt             String?
+  content            String?
+  logId              String?
+  model              String?
+  truncated          Boolean?
+  exception          String?
+  contentGeneratedAt DateTime?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime
+  match_requests     match_requests @relation(fields: [matchRequestUuid], references: [uuid])
+}
+
+model match_request_topics {
+  id               Int            @id @default(autoincrement())
+  uuid             String         @unique
+  matchRequestUuid String
+  topicUuid        String
+  createdAt        DateTime       @default(now())
+  match_requests   match_requests @relation(fields: [matchRequestUuid], references: [uuid])
+  topics           topics         @relation(fields: [topicUuid], references: [uuid])
+
+  @@unique([matchRequestUuid, topicUuid])
+  @@index([topicUuid])
+}
+
+model match_requests {
+  id                                      Int                               @id @default(autoincrement())
+  uuid                                    String                            @unique
+  userUuid                                String
+  studentFirstName                        String?
+  studentGrade                            String?
+  offeringType                            String?
+  consultationCallScheduledAt             DateTime?
+  submittedAt                             DateTime?
+  createdAt                               DateTime                          @default(now())
+  updatedAt                               DateTime
+  offeringRatingDescription               String?
+  offeringRating                          Int?
+  learningProposalRequested               Boolean?
+  additionalContext                       String?
+  estimatedStartDate                      DateTime?
+  skipToConsultationCall                  Boolean?                          @default(false)
+  offeringSelection                       String[]
+  asyncStudentProfileSubmittedAt          DateTime?
+  asyncStudentProfileTypeformSubmissionId String?
+  match_request_learning_proposals        match_request_learning_proposals?
+  match_request_topics                    match_request_topics[]
+  users                                   users                             @relation(fields: [userUuid], references: [uuid])
+
+  @@index([userUuid])
+}
+
+model match_specialization_submissions {
+  id                              Int      @id @default(autoincrement())
+  uuid                            String   @unique
+  canTeachLowerSchool             Boolean
+  canTeachLowerSchoolExplanation  String?
+  canTeachMiddleSchool            Boolean
+  canTeachMiddleSchoolExplanation String?
+  canTeachHighSchool              Boolean
+  canTeachHighSchoolExplanation   String?
+  math                            String[]
+  science                         String[]
+  writing                         String[]
+  language                        String[]
+  other                           String[]
+  passionProjectPathway           String[]
+  artsHumanities                  String[]
+  businessFinanceEntrepreneurship String[]
+  scienceEngineeringTechnology    String[]
+  politicsEthicsSocialJustice     String[]
+  executiveFunctioningExplanation String?
+  pathfindingExplanation          String?
+  studentPersona                  String[]
+  studentPersonaExplanation       String?
+  personalityTrait                String[]
+  competitiveExtracurricular      String[]
+  interestsAndHobbies             String[]
+  schoolSettingEnvironment        String[]
+  learningDifferences             String[]
+  ethnicity                       String[]
+  genderIdentity                  String[]
+  religion                        String[]
+  userUuid                        String
+  createdAt                       DateTime @default(now())
+  updatedAt                       DateTime
+  mentorshipTrack                 String[]
+  supplementary                   String[]
+  academicMentorshipExplanation   String?
+  competitiveExtracurricularOther String?
+  ethnicityOther                  String?
+  genderIdentityOther             String?
+  interestsAndHobbiesOther        String?
+  learningDifferencesOther        String?
+  passionProjectExplanation       String?
+  personalityTraitOther           String?
+  religionOther                   String?
+  schoolSettingEnvironmentOther   String?
+  users                           users    @relation(fields: [userUuid], references: [uuid])
+
+  @@index([userUuid])
+}
+
+model match_specialization_survey_typeform_submissions {
+  id                               Int                  @id @default(autoincrement())
+  uuid                             String               @unique
+  createdAt                        DateTime             @default(now())
+  updatedAt                        DateTime             @default(now())
+  mentorApplicationUuid            String?              @unique
+  schoolLevelQualifications        String[]
+  lowerSchoolFreeResponse          String?
+  middleSchoolFreeResponse         String?
+  highSchoolFreeResponse           String?
+  offeringSelection                String
+  addOnSelection                   String
+  academicSubjectFreeResponse      String?
+  academicMentorshipTopics         String[]
+  passionProjectGoals              String[]
+  passionProjectFreeResponse       String?
+  passionProjectTopics             String[]
+  executiveFunctioningFreeResponse String?
+  pathfindingFreeResponse          String?
+  studentPersonas                  String[]
+  studentPersonasFreeResponse      String?
+  extracurriculars                 String[]
+  extracurricularsOther            String?
+  gender                           String?
+  genderOther                      String?
+  interestsAndHobbies              String[]
+  interestsAndHobbiesOther         String?
+  learningDifferences              String[]
+  learningDifferencesOther         String?
+  personalityTraits                String[]
+  personalityTraitsOther           String?
+  races                            String[]
+  racesOther                       String?
+  religion                         String?
+  religionOther                    String?
+  schoolSettings                   String[]
+  schoolSettingsOther              String?
+  userUuid                         String?
+  syncedToProfileAt                DateTime?
+  mentor_applications              mentor_applications? @relation(fields: [mentorApplicationUuid], references: [uuid])
+}
+
+model matches {
+  id                Int           @id @default(autoincrement())
+  uuid              String        @unique
+  state             String
+  opportunityUuid   String
+  pitchUuid         String
+  mentorUuid        String
+  rank              Int
+  mentorPresentedAt DateTime?
+  mentorRespondedAt DateTime?
+  mentorReply       String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime
+  users             users         @relation(fields: [mentorUuid], references: [uuid])
+  opportunities     opportunities @relation(fields: [opportunityUuid], references: [uuid])
+  pitches           pitches       @relation(fields: [pitchUuid], references: [uuid])
+
+  @@index([state])
+}
+
+model mentor_application_rubrics {
+  id                     Int                 @id @default(autoincrement())
+  uuid                   String              @unique
+  mentorApplicationUuid  String              @unique
+  hasAdvancedDegree      Boolean             @default(false)
+  competitiveAchievement Boolean             @default(false)
+  professionalExperience Boolean             @default(false)
+  uniqueExpertise        Boolean             @default(false)
+  thoughtfulFollowUp     Boolean             @default(false)
+  standoutInterview      Boolean             @default(false)
+  conductCommunication   Int                 @default(0)
+  initiativeImpact       Int                 @default(0)
+  reliabilityCommitment  Int                 @default(0)
+  teachingPassion        Int                 @default(0)
+  mentor_applications    mentor_applications @relation(fields: [mentorApplicationUuid], references: [uuid])
+}
+
+model mentor_application_topics {
+  id                    Int                 @id @default(autoincrement())
+  uuid                  String              @unique
+  mentorApplicationUuid String
+  topicUuid             String
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime
+  mentor_applications   mentor_applications @relation(fields: [mentorApplicationUuid], references: [uuid])
+  topics                topics              @relation(fields: [topicUuid], references: [uuid])
+
+  @@unique([mentorApplicationUuid, topicUuid])
+  @@index([topicUuid])
+}
+
+model mentor_applications {
+  id                                               Int                                               @id @default(autoincrement())
+  uuid                                             String                                            @unique
+  userUuid                                         String                                            @unique
+  status                                           String                                            @default("PENDING")
+  currentStage                                     String                                            @default("ASYNC_APPLICATION")
+  specialNotes                                     String?
+  personalInfoNotes                                String?
+  asyncApplicationNotes                            String?
+  liveInterviewNotes                               String?
+  liveInterviewScheduled                           Boolean                                           @default(false)
+  interviewScore                                   Int?
+  strengths                                        String[]
+  weaknesses                                       String[]
+  tags                                             String[]
+  waitlistedAt                                     DateTime?
+  createdAt                                        DateTime                                          @default(now())
+  updatedAt                                        DateTime
+  videoAskSubmitted                                Boolean                                           @default(false)
+  resumeUrl                                        String?
+  howDidYouHearAboutUs                             String?
+  howDidYouHearAboutUsFreeResponse                 String?
+  teachingCapacity                                 Int                                               @default(0)
+  hasWorkAuthorization                             Boolean                                           @default(false)
+  hiredAt                                          DateTime?
+  asyncAppReviewedAt                               DateTime?
+  asyncAppSubmittedAt                              DateTime?
+  liveInterviewScheduledAt                         DateTime?
+  rejectedAt                                       DateTime?
+  mentorSpecializationSubmittedAt                  DateTime?
+  mentorSpecializationTypeformId                   String?
+  normsAndExpectationsSubmittedAt                  DateTime?
+  normsAndExpectationsTypeformId                   String?
+  match_specialization_survey_typeform_submissions match_specialization_survey_typeform_submissions?
+  mentor_application_rubrics                       mentor_application_rubrics?
+  mentor_application_topics                        mentor_application_topics[]
+  users                                            users                                             @relation(fields: [userUuid], references: [uuid])
+
+  @@index([currentStage, status])
+}
+
+model mentor_cadence_request {
+  id                     Int         @id @default(autoincrement())
+  uuid                   String      @unique
+  idealFrequency         Int
+  additionalContext      String
+  mentorshipImpactRating Int
+  mentorEnjoymentRating  Int
+  confirmWithFamily      Boolean
+  createdAt              DateTime    @default(now())
+  updatedAt              DateTime
+  engagementUuid         String
+  reason                 String      @default("other")
+  engagements            engagements @relation(fields: [engagementUuid], references: [uuid])
+}
+
+model mentor_digest_feedback {
+  id             Int      @id @default(autoincrement())
+  uuid           String   @unique
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime
+  engagementUuid String
+  userUuid       String
+  feedbackMonth  Int
+  feedbackYear   Int
+  text           Json
+}
+
+model mentor_end_request {
+  id                                Int                                @id @default(autoincrement())
+  uuid                              String                             @unique
+  endDate                           DateTime
+  additionalContext                 String
+  mentorshipImpactRating            Int
+  mentorEnjoymentRating             Int
+  studentReturnLikelihoodRating     Int
+  confirmWithFamily                 Boolean
+  createdAt                         DateTime                           @default(now())
+  updatedAt                         DateTime
+  reason                            String
+  engagement_status_change_requests engagement_status_change_requests?
+}
+
+model mentor_finance_profiles {
+  id                Int      @id @default(autoincrement())
+  uuid              String   @unique
+  userUuid          String   @unique
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime
+  stripeAccountId   String?
+  totalAmountEarned Int      @default(0)
+  users             users    @relation(fields: [userUuid], references: [uuid])
+}
+
+model mentor_internal_profile_notes {
+  id         Int      @id @default(autoincrement())
+  uuid       String   @unique
+  mentorUuid String
+  type       String
+  content    String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime
+  createdBy  String
+  users      users    @relation(fields: [mentorUuid], references: [uuid])
+
+  @@index([createdAt])
+  @@index([mentorUuid, type])
+}
+
+model mentor_pause_request {
+  id                                Int                                @id @default(autoincrement())
+  uuid                              String                             @unique
+  pauseDate                         DateTime
+  resumeDate                        DateTime
+  additionalContext                 String
+  mentorshipProgressRating          Int
+  studentResumeLikelihoodRating     Int
+  confirmWithFamily                 Boolean
+  createdAt                         DateTime                           @default(now())
+  updatedAt                         DateTime
+  reason                            String
+  engagement_status_change_requests engagement_status_change_requests?
+}
+
+model mentor_profile_connect_requests {
+  id                Int      @id @default(autoincrement())
+  uuid              String   @unique
+  createdAt         DateTime @default(now())
+  requesterUuid     String
+  mentorProfileUuid String
+  message           String?
+
+  @@unique([mentorProfileUuid, requesterUuid])
+}
+
+model mentor_profiles {
+  id                               Int                                @id @default(autoincrement())
+  uuid                             String                             @unique
+  active                           Boolean                            @default(false)
+  slug                             String                             @unique
+  pronouns                         String?
+  biography                        String?
+  teachingVideoPlaybackId          String?
+  teachingVideoDescription         String?
+  greatestAchievement              String?
+  communityBadges                  String[]
+  profilePhotos                    String[]
+  userUuid                         String                             @unique
+  displayCampaignVisibility        Boolean                            @default(true)
+  restrictedProfileVisibility      Boolean                            @default(false)
+  createdAt                        DateTime                           @default(now())
+  updatedAt                        DateTime                           @default(now())
+  users                            users                              @relation(fields: [userUuid], references: [uuid])
+  mentor_profiles_causes_supported mentor_profiles_causes_supported[]
+  mentor_profiles_deep_dives       mentor_profiles_deep_dives[]
+  mentor_profiles_favorites        mentor_profiles_favorites[]
+  topics                           topics[]                           @relation("MentorProfileToTopic")
+}
+
+model mentor_profiles_causes_supported {
+  id                Int             @id @default(autoincrement())
+  uuid              String          @unique
+  name              String
+  description       String
+  photoUrl          String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime
+  mentorProfileUuid String
+  mentor_profiles   mentor_profiles @relation(fields: [mentorProfileUuid], references: [uuid])
+
+  @@index([mentorProfileUuid])
+}
+
+model mentor_profiles_deep_dives {
+  id                            Int                           @id @default(autoincrement())
+  uuid                          String                        @unique
+  content                       String?
+  videoPlaybackId               String?
+  createdAt                     DateTime                      @default(now())
+  updatedAt                     DateTime
+  mentorProfileUuid             String
+  mentorProfileQuestionBankUuid String
+  mentor_profiles_question_bank mentor_profiles_question_bank @relation(fields: [mentorProfileQuestionBankUuid], references: [uuid])
+  mentor_profiles               mentor_profiles               @relation(fields: [mentorProfileUuid], references: [uuid])
+
+  @@index([mentorProfileUuid])
+}
+
+model mentor_profiles_favorites {
+  id                Int             @id @default(autoincrement())
+  uuid              String          @unique
+  title             String
+  type              String
+  photoUrl          String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime
+  mentorProfileUuid String
+  mentor_profiles   mentor_profiles @relation(fields: [mentorProfileUuid], references: [uuid])
+
+  @@index([mentorProfileUuid])
+}
+
+model mentor_profiles_question_bank {
+  id                         Int                          @id @default(autoincrement())
+  question                   String
+  createdAt                  DateTime                     @default(now())
+  updatedAt                  DateTime
+  uuid                       String                       @unique
+  mentor_profiles_deep_dives mentor_profiles_deep_dives[]
+}
+
+model mentor_proposals {
+  id                     Int                  @id @default(autoincrement())
+  uuid                   String               @unique
+  engagementProposalUuid String
+  mentorUuid             String
+  description            String?
+  selected               Boolean              @default(false)
+  createdAt              DateTime             @default(now())
+  createdBy              String
+  updatedAt              DateTime
+  acceptanceMessage      String?
+  acceptedByMentorAt     DateTime?
+  declinedByMentorAt     DateTime?
+  declinedReason         String?
+  declinedResponse       String?
+  missedDueDateAt        DateTime?
+  presentationOrder      Int                  @default(0)
+  notifiedAt             DateTime?
+  engagement_proposals   engagement_proposals @relation(fields: [engagementProposalUuid], references: [uuid])
+
+  @@index([engagementProposalUuid, presentationOrder])
+}
+
+model mentor_rematch_request {
+  id                            Int         @id @default(autoincrement())
+  uuid                          String      @unique
+  transitionDate                DateTime
+  mentorshipImpactRating        Int
+  mentorEnjoymentRating         Int
+  studentAccomplishments        String
+  studentTips                   String
+  importantMentorQualities      String
+  studentGoalsAndMilestones     String
+  studentReturnLikelihoodRating Int
+  createdAt                     DateTime    @default(now())
+  updatedAt                     DateTime
+  engagementUuid                String
+  reason                        String      @default("other")
+  engagements                   engagements @relation(fields: [engagementUuid], references: [uuid])
+}
+
+model mentor_seasonal_availability_form_responses {
+  id                       Int       @id @default(autoincrement())
+  uuid                     String    @unique
+  userUuid                 String
+  option                   String
+  newTeachingOpportunities Boolean?
+  teachingCapacity         Int?
+  orientationEventId       String?
+  pauseDate                DateTime?
+  resumeDate               DateTime?
+  pauseReasonFreeResponse  String?
+  endDate                  DateTime?
+  endReasonFreeResponse    String?
+  unsureReasonFreeResponse String?
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime
+  cohort                   String
+  taskUuid                 String
+
+  @@index([userUuid])
+}
+
+model mentor_seasonal_engagement_form_responses {
+  id                                Int                                @id @default(autoincrement())
+  uuid                              String                             @unique
+  userUuid                          String
+  option                            String
+  overallRating                     Int?
+  prepTime                          Int?
+  fitRating                         Int?
+  progressRating                    Int?
+  confidenceRating                  Int?
+  evaluationFreeResponse            String?
+  standardEngagementCadence         Boolean?
+  adjustedCadence                   String?
+  adjustedCadenceReason             String?
+  adjustedCadenceReasonFreeResponse String?
+  communicationWithFamily           Boolean?
+  resumeDate                        DateTime?
+  unsureReason                      String?
+  unsureReasonFreeResponse          String?
+  engagementStatusChangeRequestUuid String?                            @unique
+  createdAt                         DateTime                           @default(now())
+  updatedAt                         DateTime
+  cohort                            String
+  taskUuid                          String
+  engagement_status_change_requests engagement_status_change_requests? @relation(fields: [engagementStatusChangeRequestUuid], references: [uuid])
+
+  @@index([userUuid])
+}
+
+model mentor_seasonal_orientation_sign_up_responses {
+  id        Int      @id @default(autoincrement())
+  uuid      String   @unique
+  eventIds  String[]
+  userUuid  String
+  cohort    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime
+}
+
+model mentor_specialization_survey_submission {
+  id           Int      @id @default(autoincrement())
+  uuid         String   @unique
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @default(now())
+  submissionId String
+  userUuid     String?
+}
+
+model messages {
+  id                         Int           @id @default(autoincrement())
+  uuid                       String        @unique
+  conversationUuid           String
+  senderUuid                 String
+  text                       String?
+  createdAt                  DateTime      @default(now())
+  updatedAt                  DateTime
+  cometMessageId             String        @unique
+  cometMessageType           String
+  mediaMimeType              String?
+  mediaName                  String?
+  mediaUrl                   String?
+  reactedBy                  String[]
+  reactions                  String[]
+  readAt                     DateTime[]
+  readBy                     String[]
+  reminderNotificationSentAt DateTime?
+  deletedAt                  DateTime?
+  originalText               String?
+  readByAll                  Boolean       @default(false)
+  conversations              conversations @relation(fields: [conversationUuid], references: [uuid])
+
+  @@index([conversationUuid])
+  @@index([conversationUuid, senderUuid])
+}
+
+model monthly_journal_rollups {
+  id          Int    @id @default(autoincrement())
+  uuid        String @unique
+  month       Int
+  year        Int
+  description String
+  userUuid    String
+  basePay     Int    @default(0)
+  bonusPay    Int    @default(0)
+  totalPay    Int    @default(0)
+  users       users  @relation(fields: [userUuid], references: [uuid])
+}
+
+model notification_preferences {
+  id                                         Int      @id @default(autoincrement())
+  createdAt                                  DateTime @default(now())
+  updatedAt                                  DateTime
+  userUuid                                   String   @unique
+  emailNotificationsEnabled                  Boolean  @default(true)
+  smsNotificationsEnabled                    Boolean  @default(true)
+  smsOptIn                                   Boolean  @default(false)
+  notifiableParties                          String[]
+  emailNotificationsForInAppMessagingEnabled Boolean  @default(true)
+  smsNotificationsForInAppMessagingEnabled   Boolean  @default(true)
+  users                                      users    @relation(fields: [userUuid], references: [uuid])
+}
+
+model notification_templates {
+  id            Int             @id @default(autoincrement())
+  uuid          String          @unique
+  type          String
+  title         String
+  description   String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime
+  notifications notifications[]
+
+  @@index([type])
+}
+
+model notifications {
+  id                       Int                    @id @default(autoincrement())
+  uuid                     String                 @unique
+  userUuid                 String
+  notificationTemplateUuid String
+  notifyableType           String
+  notifyableUuid           String?
+  readAt                   DateTime?
+  createdAt                DateTime               @default(now())
+  updatedAt                DateTime
+  deletedAt                DateTime?
+  description              String?
+  title                    String
+  notification_templates   notification_templates @relation(fields: [notificationTemplateUuid], references: [uuid])
+
+  @@index([createdAt])
+  @@index([userUuid, deletedAt, readAt])
+  @@index([userUuid, notificationTemplateUuid, deletedAt])
+}
+
+model opportunities {
+  id                    Int       @id @default(autoincrement())
+  uuid                  String    @unique
+  refinements           String[]
+  consultationCallNotes String
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime
+  name                  String    @default("Opportunity")
+  matches               matches[]
+}
+
+model order_analytics {
+  id                          Int                  @id @default(autoincrement())
+  uuid                        String               @unique
+  engagementProposalUuid      String               @unique
+  mentorSourcingStartedAt     DateTime?
+  mentorSourcingEndedAt       DateTime?
+  exhaustedPitchCount         Int                  @default(0)
+  mentorMatchingCheckoutCount Int                  @default(0)
+  engagement_proposals        engagement_proposals @relation(fields: [engagementProposalUuid], references: [uuid])
+}
+
+model pause_engagement_issue_activities {
+  id                       Int                     @id @default(autoincrement())
+  uuid                     String                  @unique
+  pauseEngagementIssueUuid String
+  activityType             String
+  createdAt                DateTime                @default(now())
+  pause_engagement_issues  pause_engagement_issues @relation(fields: [pauseEngagementIssueUuid], references: [uuid])
+}
+
+model pause_engagement_issue_notes {
+  id                       Int                     @id @default(autoincrement())
+  uuid                     String                  @unique
+  pauseEngagementIssueUuid String
+  note                     String
+  createdAt                DateTime                @default(now())
+  updatedAt                DateTime
+  pause_engagement_issues  pause_engagement_issues @relation(fields: [pauseEngagementIssueUuid], references: [uuid])
+
+  @@index([pauseEngagementIssueUuid])
+}
+
+model pause_engagement_issues {
+  id                                Int                                 @id @default(autoincrement())
+  uuid                              String                              @unique
+  engagementUuid                    String
+  engagementStatusChangeRequestUuid String?                             @unique
+  autoPausedAt                      DateTime?
+  autoResumedAt                     DateTime?
+  createdAt                         DateTime                            @default(now())
+  updatedAt                         DateTime
+  guardianConfirmedAt               DateTime?
+  needsGuardianConfirmation         Boolean                             @default(false)
+  pauseAt                           DateTime
+  resumeAt                          DateTime
+  isIndefinitelyPaused              Boolean                             @default(false)
+  pause_engagement_issue_activities pause_engagement_issue_activities[]
+  pause_engagement_issue_notes      pause_engagement_issue_notes[]
+  engagement_status_change_requests engagement_status_change_requests?  @relation(fields: [engagementStatusChangeRequestUuid], references: [uuid])
+  engagements                       engagements                         @relation(fields: [engagementUuid], references: [uuid])
+
+  @@index([engagementUuid])
+}
+
+model payment_profiles {
+  id               Int              @id @default(autoincrement())
+  uuid             String           @unique
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime
+  userUuid         String           @unique
+  stripeCustomerId String?
+  stripeAccountId  String?
+  creditBalance    Int              @default(0)
+  credit_entries   credit_entries[]
+  users            users            @relation(fields: [userUuid], references: [uuid])
+  subscriptions    subscriptions[]
+}
+
+model pitches {
+  id              Int       @id @default(autoincrement())
+  uuid            String    @unique
+  state           String
+  windowMinutes   Int
+  activeMatchUuid String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime
+  paused          Boolean   @default(false)
+  matches         matches[]
+
+  @@index([activeMatchUuid])
+  @@index([state])
+}
+
+model profile_topics {
+  id          Int      @id @default(autoincrement())
+  uuid        String   @unique
+  profileUuid String
+  topicUuid   String
+  createdAt   DateTime @default(now())
+  profiles    profiles @relation(fields: [profileUuid], references: [uuid])
+  topics      topics   @relation(fields: [topicUuid], references: [uuid])
+
+  @@unique([profileUuid, topicUuid])
+  @@index([topicUuid])
+}
+
+model profiles {
+  id                               Int              @id @default(autoincrement())
+  uuid                             String           @unique
+  createdAt                        DateTime         @default(now())
+  updatedAt                        DateTime
+  userUuid                         String           @unique
+  active                           Boolean          @default(true)
+  extracurriculars                 String[]
+  timezone                         String?
+  onboardingCompleted              Boolean          @default(false)
+  eligibleForMatching              Boolean          @default(false)
+  canTeachLowerSchool              Boolean          @default(false)
+  canTeachUpperSchool              Boolean          @default(false)
+  personality                      String?
+  becameEligibleForMatchingAt      DateTime?
+  zoomCustomerId                   String?
+  canTeachExecutiveFunctioning     Boolean          @default(false)
+  canTeachMiddleSchool             Boolean          @default(false)
+  canTeachPathfinding              Boolean          @default(false)
+  studentArchetypes                String[]
+  hobbies                          String[]
+  learningDifferences              String[]
+  passionProjectGoals              String[]
+  personalityTraits                String[]
+  religion                         String?
+  schoolSettings                   String[]
+  acceptingOpportunities           Boolean          @default(false)
+  flaggedAsBadMentor               Boolean          @default(false)
+  flaggedAsBadMentorAt             DateTime?
+  noLongerAcceptingOpportunitiesAt DateTime?
+  contractEnvelopeId               String?
+  contractSignedAt                 DateTime?
+  onboardingCompletedAt            DateTime?
+  profile_topics                   profile_topics[]
+  users                            users            @relation(fields: [userUuid], references: [uuid])
+}
+
+model scheduling_accounts {
+  id                        Int                  @id @default(autoincrement())
+  uuid                      String               @unique
+  accessToken               String?
+  refreshToken              String?
+  userUuid                  String?
+  createdAt                 DateTime             @default(now())
+  updatedAt                 DateTime
+  accountType               String
+  subId                     String?
+  availabilityLastUpdatedAt DateTime?
+  availabilityHours         Float?
+  accessTokenExpiresAt      DateTime?
+  calendar_providers        calendar_providers[]
+  users                     users?               @relation(fields: [userUuid], references: [uuid])
+
+  @@index([accountType, userUuid, availabilityHours])
+}
+
+model schools {
+  id               Int                @id @default(autoincrement())
+  uuid             String             @unique
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime
+  name             String
+  type             String
+  city             String
+  state            String
+  country          String
+  zip              String
+  users_educations users_educations[]
+
+  @@unique([name, zip])
+}
+
+model seasonal_engagement_statuses {
+  id                                Int      @id @default(autoincrement())
+  uuid                              String   @unique
+  engagementUuid                    String
+  cohort                            String
+  createdAt                         DateTime @default(now())
+  updatedAt                         DateTime
+  engagementStatusChangeRequestUuid String?
+  customerStatus                    String?
+  engagementStatus                  String
+  mentorStatus                      String?
+
+  @@unique([engagementUuid, cohort])
+  @@index([engagementUuid])
+}
+
+model session_agendas {
+  id                         Int                     @id @default(autoincrement())
+  uuid                       String                  @unique
+  sessionNumber              Int?
+  sessionTitle               String?
+  lastSessionSummary         String?
+  lastSessionActionItems     String[]
+  lastSessionHighlights      String[]
+  lastSessionRecommendations String[]
+  sessionCheckIn             String?
+  sessionWarmUp              String[]
+  upcomingMilestones         String[]
+  sessionGoalRecommendation  String?
+  sessionGoalRationale       String?
+  sessionGoalAlternatives    String[]
+  sessionActivities          Json[]
+  schedulingGuidance         String?
+  completedCalendarEventUuid String?
+  engagementUuid             String
+  learningPlanHistoryUuid    String
+  createdBy                  String
+  deletedAt                  DateTime?
+  processingCompletedAt      DateTime?
+  createdAt                  DateTime                @default(now())
+  updatedAt                  DateTime
+  learning_plan_histories    learning_plan_histories @relation(fields: [learningPlanHistoryUuid], references: [uuid])
+
+  @@index([learningPlanHistoryUuid])
+}
+
+model session_assets {
+  id                         Int                  @id @default(autoincrement())
+  uuid                       String               @unique
+  videoUrl                   String?
+  summary                    String?
+  calendarEventUuid          String               @unique
+  createdAt                  DateTime             @default(now())
+  updatedAt                  DateTime
+  botId                      String               @unique
+  assemblyAiTranscriptId     String?              @unique
+  bot_joined_at              DateTime?
+  declined_at                DateTime?
+  declined_reason            String?
+  host_joined_at             DateTime?
+  non_host_joined_at         DateTime?
+  ltsVideoUrl                String?
+  transcript                 String?
+  diarizedTranscript         Json[]
+  diarizedAssemblyTranscript Json[]
+  botDeletedAt               DateTime?
+  summaryCreatedAt           DateTime?
+  deadSpaceSeconds           Int?
+  deadSpaceSecondsPercent    Int?
+  menteeTalkTime             Int?
+  menteeTalkTimePercent      Int?
+  mentorTalkTime             Int?
+  mentorTalkTimePercent      Int?
+  recordingStartedAt         DateTime?
+  isProcessable              Boolean              @default(false)
+  unprocessableReasons       String[]
+  calendar_events            calendar_events      @relation(fields: [calendarEventUuid], references: [uuid])
+  session_structures         session_structures[]
+  video_analysis             video_analysis?
+}
+
+model session_structures {
+  id                   Int            @id @default(autoincrement())
+  uuid                 String         @unique
+  checkInUtterances    Json[]
+  goalUtterances       Json[]
+  reflectionUtterances Json[]
+  schedulingUtterances Json[]
+  actionItemUtterances Json[]
+  transcriptSource     String
+  sessionAssetsUuid    String
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime
+  actionItemContext    String?
+  actionItemFeedback   String?
+  actionItemRating     String?
+  checkInContext       String?
+  checkInFeedback      String?
+  checkInRating        String?
+  goalContext          String?
+  goalFeedback         String?
+  goalRating           String?
+  reflectionContext    String?
+  reflectionFeedback   String?
+  reflectionRating     String?
+  schedulingContext    String?
+  schedulingFeedback   String?
+  schedulingRating     String?
+  session_assets       session_assets @relation(fields: [sessionAssetsUuid], references: [uuid])
+}
+
+model stagnant_engagement_issue_activities {
+  id                          Int                        @id @default(autoincrement())
+  uuid                        String                     @unique
+  activityType                String
+  createdAt                   DateTime                   @default(now())
+  stagnantEngagementIssueUuid String
+  stagnant_engagement_issues  stagnant_engagement_issues @relation(fields: [stagnantEngagementIssueUuid], references: [uuid])
+}
+
+model stagnant_engagement_issue_notes {
+  id                          Int                        @id @default(autoincrement())
+  uuid                        String                     @unique
+  note                        String
+  createdAt                   DateTime                   @default(now())
+  updatedAt                   DateTime
+  stagnantEngagementIssueUuid String
+  stagnant_engagement_issues  stagnant_engagement_issues @relation(fields: [stagnantEngagementIssueUuid], references: [uuid])
+}
+
+model stagnant_engagement_issues {
+  id                                   Int                                    @id @default(autoincrement())
+  uuid                                 String                                 @unique
+  engagementUuid                       String
+  taskCardTitle                        String?
+  taskCardSubtitle                     String?
+  state                                String                                 @default("NEW")
+  lastSessionAt                        DateTime
+  completedSessionCount                Int
+  cancelledSessionCount                Int
+  isSubscription                       Boolean
+  createdAt                            DateTime                               @default(now())
+  updatedAt                            DateTime
+  resolvedAt                           DateTime?
+  labels                               String[]
+  followUpTaskCardSubtitle             String?
+  followUpTaskCardTitle                String?
+  followUpEmailSentAt                  DateTime?
+  initialEmailSentAt                   DateTime?
+  ultimatumEmailSentAt                 DateTime?
+  lastCancelledSessionAt               DateTime?
+  actualCadence                        Float                                  @default(0)
+  cadence                              String                                 @default("4")
+  stagnantEngagementIssuesCount        Int                                    @default(1)
+  guardianUuid                         String?
+  mentorUuid                           String?
+  studentUuid                          String?
+  stagnant_engagement_issue_activities stagnant_engagement_issue_activities[]
+  stagnant_engagement_issue_notes      stagnant_engagement_issue_notes[]
+  engagements                          engagements                            @relation(fields: [engagementUuid], references: [uuid])
+  stagnant_engagement_task_responses   stagnant_engagement_task_responses[]
+
+  @@index([engagementUuid])
+}
+
+model stagnant_engagement_task_responses {
+  id                          Int                        @id @default(autoincrement())
+  uuid                        String                     @unique
+  inTouchWithFamily           Boolean                    @default(false)
+  expectedMeetingAt           DateTime?
+  meetingContext              String?
+  requestedThreeWayEmail      Boolean                    @default(false)
+  requestedAction             String?
+  engagementUuid              String
+  stagnantEngagementIssueUuid String
+  createdAt                   DateTime                   @default(now())
+  updatedAt                   DateTime                   @default(now())
+  taskUuid                    String
+  stagnant_engagement_issues  stagnant_engagement_issues @relation(fields: [stagnantEngagementIssueUuid], references: [uuid])
+
+  @@unique([stagnantEngagementIssueUuid, taskUuid])
+}
+
+model student_profile_histories {
+  id                              Int       @id @default(autoincrement())
+  uuid                            String    @unique
+  createdAt                       DateTime  @default(now())
+  updatedAt                       DateTime
+  userUuid                        String?
+  fullName                        String?
+  grade                           String?
+  school                          String?
+  city                            String?
+  gender                          String?
+  learningDifferences             String[]
+  studentDescription              String[]
+  favoriteSubjects                String[]
+  challengingSubjects             String[]
+  academicGrowthAreas             String[]
+  extracurriculars                String[]
+  hobbies                         String[]
+  personalities                   String[]
+  superpowers                     String[]
+  personalGrowthAreas             String[]
+  careerAspirations               String[]
+  mentorPersonalities             String[]
+  mentorQualities                 String[]
+  successMetrics                  String[]
+  externalDocumentLastSyncedAt    DateTime?
+  externalDocumentLastScheduledAt DateTime?
+  fileId                          String?
+  externalDocumentUrl             String?
+  rawDocumentText                 String?
+  createdBy                       String?
+  academicNotes                   String[]
+  additionalNotes                 String[]
+  futureCareers                   String[]
+  futureMajors                    String[]
+  interests                       String[]
+  studentOverview                 String?
+}
+
+model student_profile_submissions {
+  id                 Int      @id @default(autoincrement())
+  uuid               String   @unique
+  meetingTranscript  String?
+  meetingNotes       String?
+  summary            String?
+  createdBy          String
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @default(now())
+  studentProfileUuid String
+  addOnSelections    String[]
+  availabilityNotes  String?
+  disciplineUuid     String?
+  engagementGoals    String[]
+  goals              String?
+  hubspotDealId      String?
+  offeringType       String?
+  studentArchetypes  String[]
+  successMetrics     String[]
+  topicUuid          String?
+}
+
+model student_profiles {
+  id                              Int       @id @default(autoincrement())
+  uuid                            String    @unique
+  userUuid                        String?   @unique
+  externalDocumentUrl             String?
+  googleFileId                    String?
+  profileText                     String?
+  externalDocumentLastSyncedAt    DateTime?
+  academicGrowthAreas             String[]
+  careerAspirations               String[]
+  challengingSubjects             String[]
+  createdAt                       DateTime  @default(now())
+  extracurriculars                String[]
+  favoriteSubjects                String[]
+  grade                           String?
+  hobbies                         String[]
+  mentorPersonalities             String[]
+  personalGrowthAreas             String[]
+  personalities                   String[]
+  superpowers                     String[]
+  updatedAt                       DateTime  @default(now())
+  fullName                        String?
+  mentorQualities                 String[]
+  studentDescription              String[]
+  successMetrics                  String[]
+  city                            String?
+  school                          String?
+  learningDifferences             String[]
+  gender                          String?
+  externalDocumentLastScheduledAt DateTime?
+  createdBy                       String?
+  academicNotes                   String[]
+  additionalNotes                 String[]
+  futureCareers                   String[]
+  futureMajors                    String[]
+  interests                       String[]
+  studentOverview                 String?
+  users                           users?    @relation(fields: [userUuid], references: [uuid])
+}
+
+model subscription_analytics {
+  id                      Int      @id @default(autoincrement())
+  uuid                    String   @unique
+  utilizationPercentage   Float
+  subscriptionUuid        String
+  periodStartDate         DateTime
+  periodEndDate           DateTime
+  creditDollarAmountAdded Int
+}
+
+model subscriptions {
+  id                   Int               @id @default(autoincrement())
+  uuid                 String            @unique
+  status               String            @default("incomplete")
+  cancelReason         String?
+  stripeSubscriptionId String            @unique
+  stripeProductId      String
+  stripePriceId        String
+  engagementUuid       String?           @unique
+  paymentProfileUuid   String?
+  periodStartDate      DateTime
+  periodEndDate        DateTime
+  trialPeriodStart     DateTime?
+  trialPeriodEnd       DateTime?
+  cancelledAt          DateTime?
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime
+  cancelAtPeriodEnd    Boolean?
+  lastChargedAt        DateTime?
+  collectionPaused     Boolean           @default(false)
+  engagements          engagements?      @relation(fields: [engagementUuid], references: [uuid])
+  payment_profiles     payment_profiles? @relation(fields: [paymentProfileUuid], references: [uuid])
+
+  @@index([paymentProfileUuid])
+}
+
+model tags {
+  id        Int      @id @default(autoincrement())
+  uuid      String   @unique
+  name      String   @unique
+  createdAt DateTime @default(now())
+}
+
+model task_groups {
+  id           Int       @id @default(autoincrement())
+  uuid         String    @unique
+  userUuid     String
+  taskType     String
+  taskNames    String[]
+  taskUuids    String[]
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime
+  activeAt     DateTime?
+  dueAt        DateTime?
+  completedAt  DateTime?
+  deletedAt    DateTime?
+  taskableName String
+  taskableUuid String
+
+  @@index([taskNames, taskUuids, taskType])
+  @@index([userUuid])
+}
+
+model tasks {
+  id           Int       @id @default(autoincrement())
+  uuid         String    @unique
+  userUuid     String
+  taskType     String
+  taskableName String
+  taskableUuid String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime
+  activeAt     DateTime?
+  dueAt        DateTime?
+  completedAt  DateTime?
+  deletedAt    DateTime?
+
+  @@index([taskableName, taskableUuid, taskType])
+  @@index([userUuid])
+}
+
+model timeless_skills_submissions {
+  id                      Int       @id @default(autoincrement())
+  uuid                    String    @unique
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime
+  userUuid                String
+  engagementUuid          String
+  videoUrl                String
+  pitchDeckUrl            String
+  deliverableArtifactUuid String    @unique
+  additionalArtifactUuids String[]
+  artifacts               artifacts @relation(fields: [deliverableArtifactUuid], references: [uuid])
+
+  @@index([engagementUuid])
+  @@index([userUuid])
+}
+
+model topics {
+  id                        Int                         @id @default(autoincrement())
+  uuid                      String                      @unique
+  disciplineUuid            String
+  name                      String
+  custom                    Boolean                     @default(false)
+  createdAt                 DateTime                    @default(now())
+  archivedAt                DateTime?
+  engagement_proposals      engagement_proposals[]
+  engagements               engagements[]
+  match_request_topics      match_request_topics[]
+  mentor_application_topics mentor_application_topics[]
+  profile_topics            profile_topics[]
+  disciplines               disciplines                 @relation(fields: [disciplineUuid], references: [uuid])
+  mentor_profiles           mentor_profiles[]           @relation("MentorProfileToTopic")
+
+  @@index([disciplineUuid])
+}
+
+model user_connect_requests {
+  id            Int       @id @default(autoincrement())
+  uuid          String    @unique
+  requesterUuid String
+  inviteeEmail  String
+  acceptedAt    DateTime?
+  declinedAt    DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime
+  cancelledAt   DateTime?
+
+  @@unique([requesterUuid, inviteeEmail])
+  @@index([inviteeEmail, acceptedAt, declinedAt, cancelledAt])
+  @@index([requesterUuid, acceptedAt, declinedAt, cancelledAt])
+}
+
+model users {
+  id                                                      Int                                @id @default(autoincrement())
+  uuid                                                    String                             @unique
+  createdAt                                               DateTime                           @default(now())
+  updatedAt                                               DateTime
+  roles                                                   String[]
+  email                                                   String                             @unique
+  firebaseUid                                             String?                            @unique
+  zoomCustomerId                                          String?
+  firstName                                               String
+  lastName                                                String
+  streetAddress                                           String?
+  city                                                    String?
+  state                                                   String?
+  zip                                                     String?
+  country                                                 String?
+  phoneNumber                                             String?
+  gender                                                  String?
+  sex                                                     String?
+  races                                                   String[]
+  grade                                                   String?
+  birthDate                                               DateTime?
+  profilePictureUrl                                       String?
+  school                                                  String?
+  fullName                                                String                             @default(dbgenerated("((\"firstName\" || ' '::text) || \"lastName\")"))
+  slug                                                    String?                            @unique
+  degree                                                  String?
+  expectedGradYear                                        String?
+  major                                                   String?
+  googleAnalyticsClientId                                 String?
+  slackId                                                 String?
+  slackChannelId                                          String?
+  availability_submissions                                availability_submissions[]
+  calendar_event_logs                                     calendar_event_logs[]
+  calendar_events                                         calendar_events[]
+  compliance_profile_histories                            compliance_profile_histories[]
+  compliance_profiles                                     compliance_profiles?
+  documents                                               documents[]
+  engagement_proposals                                    engagement_proposals[]
+  engagement_report_user_feedback                         engagement_report_user_feedback[]
+  feedback                                                feedback[]
+  guardian_students_guardian_students_guardianUuidTousers guardian_students[]                @relation("guardian_students_guardianUuidTousers")
+  guardian_students_guardian_students_studentUuidTousers  guardian_students[]                @relation("guardian_students_studentUuidTousers")
+  internal_profile_notes                                  internal_profile_notes[]
+  journal_entries                                         journal_entries[]
+  marketing_profiles                                      marketing_profiles?
+  match_requests                                          match_requests[]
+  match_specialization_submissions                        match_specialization_submissions[]
+  matches                                                 matches[]
+  mentor_applications                                     mentor_applications?
+  mentor_finance_profiles                                 mentor_finance_profiles?
+  mentor_internal_profile_notes                           mentor_internal_profile_notes[]
+  mentor_profiles                                         mentor_profiles?
+  monthly_journal_rollups                                 monthly_journal_rollups[]
+  notification_preferences                                notification_preferences?
+  payment_profiles                                        payment_profiles?
+  profiles                                                profiles?
+  scheduling_accounts                                     scheduling_accounts[]
+  student_profiles                                        student_profiles?
+  users_educations                                        users_educations[]
+  users_engagements                                       users_engagements[]
+
+  @@index([email, fullName])
+  @@index([fullName])
+}
+
+model users_educations {
+  id               Int      @id @default(autoincrement())
+  uuid             String   @unique
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime
+  startYear        String?
+  endYear          String?
+  expectedGradYear String?
+  grade            String?
+  major            String?
+  degree           String?
+  schoolUuid       String?
+  userUuid         String?
+  schools          schools? @relation(fields: [schoolUuid], references: [uuid])
+  users            users?   @relation(fields: [userUuid], references: [uuid])
+
+  @@index([userUuid])
+}
+
+model users_engagements {
+  uuid           String      @unique
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime
+  userUuid       String
+  engagementUuid String
+  engagements    engagements @relation(fields: [engagementUuid], references: [uuid])
+  users          users       @relation(fields: [userUuid], references: [uuid])
+
+  @@id([userUuid, engagementUuid])
+}
+
+model video_analysis {
+  id               Int            @id @default(autoincrement())
+  uuid             String         @unique
+  sessionAssetUuid String         @unique
+  analysisData     Json[]
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime
+  session_assets   session_assets @relation(fields: [sessionAssetUuid], references: [uuid])
+}
+
+model weekly_customer_reports {
+  id                         Int      @id @default(autoincrement())
+  uuid                       String   @unique
+  userUuid                   String
+  year                       Int
+  month                      Int
+  weekOfYear                 Int
+  hasActiveEngagement        Boolean
+  hasCompletedSession        Boolean
+  sessionMinutes             Int
+  stripeSpendAmount          Int?
+  stripeSpendAmountCurrency  String?
+  stripeRefundAmount         Int?
+  stripeRefundAmountCurrency String?
+  activeEngagementCount      Int
+  activeStudentCount         Int
+  distinctMentorCount        Int
+  activeSubscriptionCount    Int
+  inAppCreditAmount          Int
+  completedSessionCount      Int
+  canceledSessionCount       Int
+  rescheduledSessionCount    Int
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime
+
+  @@unique([userUuid, year, month, weekOfYear])
+}
+
+enum InvoiceStatus {
+  draft
+  open
+  paid
+  void
+  uncollectible
+}
+
+enum SwitchType {
+  USER_UUIDS
+  ENGAGEMENT_UUIDS
+}
