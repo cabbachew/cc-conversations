@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 type User = {
   uuid: string;
@@ -68,25 +68,6 @@ export default function Home() {
   const [messages, setMessages] = useState<Record<string, Message[]>>({});
   const [loadingMessages, setLoadingMessages] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchConversations();
-  }, []);
-
-  useEffect(() => {
-    filterConversations();
-  }, [conversations, engagementSearch, userSearch]);
-
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && expandedConversation) {
-        setExpandedConversation(null);
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [expandedConversation]);
-
   const fetchConversations = async () => {
     try {
       const response = await fetch('/api/conversations');
@@ -99,7 +80,7 @@ export default function Home() {
     }
   };
 
-  const filterConversations = () => {
+  const filterConversations = useCallback(() => {
     let filtered = conversations;
 
     // Filter by engagement UUID
@@ -137,7 +118,26 @@ export default function Home() {
     }
 
     setFilteredConversations(filtered);
-  };
+  }, [conversations, engagementSearch, userSearch]);
+
+  useEffect(() => {
+    fetchConversations();
+  }, []);
+
+  useEffect(() => {
+    filterConversations();
+  }, [conversations, engagementSearch, userSearch, filterConversations]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && expandedConversation) {
+        setExpandedConversation(null);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [expandedConversation]);
 
   const fetchMessages = async (conversationUuid: string) => {
     // Return cached messages if already loaded
@@ -465,6 +465,7 @@ export default function Home() {
                                 {message.mediaUrl && (
                                   <div className="mt-2">
                                     {message.mediaMimeType?.startsWith('image/') ? (
+                                      // eslint-disable-next-line @next/next/no-img-element
                                       <img
                                         src={message.mediaUrl}
                                         alt={message.mediaName || 'Attachment'}

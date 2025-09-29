@@ -47,7 +47,7 @@ export async function GET() {
         const match = conv.cometConversationId.match(/group_group-(.+)/);
         return match ? match[1] : null;
       })
-      .filter(Boolean);
+      .filter((uuid): uuid is string => Boolean(uuid));
 
     // Extract user pairs from user conversations
     const userConversationPairs = conversations
@@ -56,7 +56,7 @@ export async function GET() {
         const match = conv.cometConversationId.match(/([0-9a-f-]{36})_user_([0-9a-f-]{36})/);
         return match ? { conversationUuid: conv.uuid, userUuid1: match[1], userUuid2: match[2] } : null;
       })
-      .filter(Boolean);
+      .filter((pair): pair is NonNullable<typeof pair> => Boolean(pair));
 
     // Get all unique user UUIDs from user conversations for efficient lookup
     const userConversationUserUuids = Array.from(
@@ -115,12 +115,12 @@ export async function GET() {
     });
 
     // Create efficient lookup structures
-    const userEngagementLookup = new Map();
+    const userEngagementLookup = new Map<string, { uuid: string; title: string }[]>();
 
     userEngagementsData.forEach(engagement => {
-      const mentors = [];
-      const students = [];
-      const guardians = new Set();
+      const mentors: string[] = [];
+      const students: string[] = [];
+      const guardians = new Set<string>();
 
       engagement.users_engagements.forEach(ue => {
         const user = ue.users;
@@ -154,11 +154,11 @@ export async function GET() {
             userEngagementLookup.set(key2, []);
           }
 
-          userEngagementLookup.get(key1).push({
+          userEngagementLookup.get(key1)!.push({
             uuid: engagement.uuid,
             title: engagement.title
           });
-          userEngagementLookup.get(key2).push({
+          userEngagementLookup.get(key2)!.push({
             uuid: engagement.uuid,
             title: engagement.title
           });

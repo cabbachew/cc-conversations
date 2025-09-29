@@ -5,10 +5,10 @@ const prisma = new PrismaClient();
 
 export async function GET(
   request: Request,
-  { params }: { params: { conversationUuid: string } }
+  { params }: { params: Promise<{ conversationUuid: string }> }
 ) {
   try {
-    const conversationUuid = params.conversationUuid;
+    const { conversationUuid } = await params;
 
     if (!conversationUuid) {
       return NextResponse.json({ error: 'Conversation UUID is required' }, { status: 400 });
