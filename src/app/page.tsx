@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { Search, MessageCircle, Paperclip, Loader2, User, Users, ArrowLeft } from "lucide-react";
+import { Search, MessageCircle, Paperclip, Loader2, User, Users, ArrowLeft, Check, CheckCheck, Circle } from "lucide-react";
 
 type User = {
   uuid: string;
@@ -432,7 +432,7 @@ export default function Home() {
                       </div>
 
                       {/* Right side - Message info */}
-                      <div className="flex flex-col items-end text-xs text-gray-500 ml-4">
+                      <div className="flex flex-col items-end text-xs text-gray-700 ml-4">
                         {latestMessageDate ? (
                           <>
                             <div className="mb-1">
@@ -455,12 +455,44 @@ export default function Home() {
                             <div className="mb-1">-</div>
                           </>
                         )}
-                        <div className="font-medium">
+                        <div className="font-medium mb-1">
                           {messageCount !== null ?
                             (messageCount === 0 ? '0' : messageCount.toString()) :
                             '-'
                           } messages
                         </div>
+                        {/* Mentor response status */}
+                        {messageCount && messageCount > 0 && (() => {
+                          // Check if we have cached messages for this conversation to determine mentor status
+                          const cachedMessages = messagesCache[conversation.uuid] || [];
+                          if (cachedMessages.length > 0) {
+                            // Find the latest message
+                            const latestMessage = cachedMessages.reduce((latest: Message, current: Message) =>
+                              new Date(current.createdAt) > new Date(latest.createdAt) ? current : latest
+                            );
+
+                            // Check if latest message sender is a mentor
+                            const isMentorLast = latestMessage.sender?.roles.includes('mentor') || false;
+                            // Check if message is read by all
+                            const isReadByAll = latestMessage.readByAll;
+
+                            return (
+                              <div className="flex justify-center">
+                                {isMentorLast ? (
+                                  // Mentor responded - show check-check (double check)
+                                  <CheckCheck className="h-4 w-4" style={{ color: '#059669' }} />
+                                ) : isReadByAll ? (
+                                  // Message read by mentor but no response - show single check
+                                  <Check className="h-4 w-4" style={{ color: '#059669' }} />
+                                ) : (
+                                  // Mentor hasn't read - show red dot
+                                  <Circle className="h-3 w-3 text-red-500 fill-red-500" />
+                                )}
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
                       </div>
                     </div>
                   </div>
