@@ -684,7 +684,7 @@ export default function Home() {
                         {/* Message container */}
                         <div className="flex px-4">
                           <div
-                            className={`max-w-xs sm:max-w-sm md:max-w-md lg:max-w-xs lg:min-w-[240px] ${
+                            className={`max-w-xs sm:max-w-sm md:max-w-lg lg:max-w-xs lg:min-w-[240px] 2xl:max-w-lg ${
                               isMentor ? "ml-auto" : "mr-auto"
                             }`}
                           >
