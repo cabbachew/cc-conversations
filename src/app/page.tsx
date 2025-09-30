@@ -525,83 +525,96 @@ export default function Home() {
                           </>
                         )}
                         <div className="font-medium mb-1">
-                          {messageCount !== null
-                            ? messageCount === 0
-                              ? "0"
-                              : messageCount.toString()
-                            : "-"}{" "}
-                          messages
-                        </div>
-                        {/* Mentor response status */}
-                        {messageCount &&
-                          messageCount > 0 &&
-                          (() => {
-                            // Check if we have cached messages for this conversation to determine mentor status
-                            const cachedMessages =
-                              messagesCache[conversation.uuid] || [];
-                            if (cachedMessages.length > 0) {
-                              // Find the latest message
-                              const latestMessage = cachedMessages.reduce(
-                                (latest: Message, current: Message) =>
-                                  new Date(current.createdAt) >
-                                  new Date(latest.createdAt)
-                                    ? current
-                                    : latest
-                              );
+                          {(() => {
+                            const cachedMessages = messagesCache[conversation.uuid] || [];
+                            const mentorMessageCount = cachedMessages.filter(
+                              (msg: Message) => msg.sender?.roles.includes('mentor')
+                            ).length;
 
-                              // Check if latest message sender is a mentor
-                              const isMentorLast =
-                                latestMessage.sender?.roles.includes(
-                                  "mentor"
-                                ) || false;
+                            const totalCount = messageCount !== null
+                              ? messageCount === 0
+                                ? "0"
+                                : messageCount.toString()
+                              : "-";
 
-                              // Find mentors in this conversation
-                              const mentorUuids = conversation.users
-                                .filter((user) =>
-                                  user.details?.roles.includes("mentor")
-                                )
-                                .map((user) => user.uuid);
+                            const mentorPart = cachedMessages.length > 0 && mentorMessageCount > 0
+                              ? ` (${mentorMessageCount})`
+                              : "";
 
-                              // Check if any mentor has read the latest message
-                              const readByMentor = mentorUuids.some(
-                                (mentorUuid) =>
-                                  latestMessage.readBy?.includes(mentorUuid)
-                              );
-
-                              return (
-                                <div className="flex justify-center">
-                                  {isMentorLast ? (
-                                    // Mentor responded - show single check
-                                    <Check
-                                      className="h-4 w-4"
-                                      style={{ color: "#059669" }}
-                                    />
-                                  ) : readByMentor ? (
-                                    // Message read by mentor but no response - show gray dot
-                                    <Circle
-                                      className="h-3 w-3"
-                                      style={{
-                                        color: "#6B7280",
-                                        fill: "#6B7280",
-                                      }}
-                                    />
-                                  ) : (
-                                    // Mentor hasn't read - show red dot
-                                    <Circle
-                                      className="h-3 w-3"
-                                      style={{
-                                        color: "#F87171",
-                                        fill: "#F87171",
-                                      }}
-                                    />
-                                  )}
-                                </div>
-                              );
-                            }
-                            return null;
+                            return `${totalCount} messages${mentorPart}`;
                           })()}
+                        </div>
                       </div>
                     </div>
+
+                    {/* Mentor response status - bottom right */}
+                    {messageCount &&
+                      messageCount > 0 &&
+                      (() => {
+                        // Check if we have cached messages for this conversation to determine mentor status
+                        const cachedMessages =
+                          messagesCache[conversation.uuid] || [];
+                        if (cachedMessages.length > 0) {
+                          // Find the latest message
+                          const latestMessage = cachedMessages.reduce(
+                            (latest: Message, current: Message) =>
+                              new Date(current.createdAt) >
+                              new Date(latest.createdAt)
+                                ? current
+                                : latest
+                          );
+
+                          // Check if latest message sender is a mentor
+                          const isMentorLast =
+                            latestMessage.sender?.roles.includes(
+                              "mentor"
+                            ) || false;
+
+                          // Find mentors in this conversation
+                          const mentorUuids = conversation.users
+                            .filter((user) =>
+                              user.details?.roles.includes("mentor")
+                            )
+                            .map((user) => user.uuid);
+
+                          // Check if any mentor has read the latest message
+                          const readByMentor = mentorUuids.some(
+                            (mentorUuid) =>
+                              latestMessage.readBy?.includes(mentorUuid)
+                          );
+
+                          return (
+                            <div className="absolute bottom-4 right-4">
+                              {isMentorLast ? (
+                                // Mentor responded - show single check
+                                <Check
+                                  className="h-4 w-4"
+                                  style={{ color: "#059669" }}
+                                />
+                              ) : readByMentor ? (
+                                // Message read by mentor but no response - show gray dot
+                                <Circle
+                                  className="h-3 w-3"
+                                  style={{
+                                    color: "#6B7280",
+                                    fill: "#6B7280",
+                                  }}
+                                />
+                              ) : (
+                                // Mentor hasn't read - show red dot
+                                <Circle
+                                  className="h-3 w-3"
+                                  style={{
+                                    color: "#F87171",
+                                    fill: "#F87171",
+                                  }}
+                                />
+                              )}
+                            </div>
+                          );
+                        }
+                        return null;
+                      })()}
                   </div>
                 );
               })}
