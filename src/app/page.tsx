@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { calculateMentorAverageResponseTime } from '../utils/mentorResponseTime';
 import {
   Search,
   MessageCircle,
@@ -147,11 +148,11 @@ export default function Home() {
 
       setConversations(filtered);
 
-      // Preload messages for engagement searches to reduce individual API calls
+      // Preload messages for small result sets to reduce individual API calls
       if (
-        engagementSearch.trim() &&
+        (engagementSearch.trim() || userSearch.trim()) &&
         filtered.length > 0 &&
-        filtered.length <= 10
+        filtered.length <= 25
       ) {
         const preloadPromises = filtered.map(
           async (conversation: Conversation) => {
@@ -440,7 +441,21 @@ export default function Home() {
 
                         {/* Users */}
                         <div className="flex flex-wrap gap-1 mb-2">
-                          {conversation.users.slice(0, 3).map((user, idx) => {
+                          {conversation.users
+                            .sort((a, b) => {
+                              const aRoles = a.details?.roles || [];
+                              const bRoles = b.details?.roles || [];
+
+                              const getRolePriority = (roles: string[]) => {
+                                if (roles.includes("mentor")) return 0;
+                                if (roles.includes("student")) return 1;
+                                if (roles.includes("guardian")) return 2;
+                                return 3;
+                              };
+
+                              return getRolePriority(aRoles) - getRolePriority(bRoles);
+                            })
+                            .map((user, idx) => {
                             const roles = user.details?.roles || [];
                             const primaryRole = roles.includes("guardian")
                               ? "guardian"
@@ -462,12 +477,23 @@ export default function Home() {
                                 ]
                               : null;
 
+                            const isUnknownUser = !user.details?.fullName;
+
                             return (
                               <div key={idx} className="flex items-center">
-                                <span className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded flex items-center gap-1">
+                                <span
+                                  className={`text-xs px-2 py-1 rounded flex items-center gap-1 ${
+                                    isUnknownUser
+                                      ? 'text-gray-400'
+                                      : 'bg-gray-100 text-gray-700'
+                                  }`}
+                                  style={isUnknownUser ? { backgroundColor: "#F3F4F6" } : {}}
+                                >
                                   {user.details?.fullName || "Unknown User"}
                                   {config && (
-                                    <span className="text-xs font-bold text-black">
+                                    <span className={`text-xs font-bold ${
+                                      isUnknownUser ? 'text-gray-500' : 'text-black'
+                                    }`}>
                                       {config.letter}
                                     </span>
                                   )}
@@ -475,27 +501,36 @@ export default function Home() {
                               </div>
                             );
                           })}
-                          {conversation.users.length > 3 && (
-                            <span className="text-xs text-gray-500">
-                              +{conversation.users.length - 3} more
-                            </span>
-                          )}
                         </div>
 
                         {/* Engagement Info */}
-                        {(conversation.engagement ||
-                          conversation.engagements.length > 0) && (
-                          <div>
+                        <div className="flex flex-wrap gap-1">
+                          {conversation.engagement?.title ? (
                             <span
                               className="inline-flex items-center px-2 py-1 rounded text-xs font-medium text-gray-700"
                               style={{ backgroundColor: "#FDE68A" }}
                             >
-                              {conversation.engagement?.title ||
-                                conversation.engagements[0]?.title ||
-                                "Engagement"}
+                              {conversation.engagement.title}
                             </span>
-                          </div>
-                        )}
+                          ) : conversation.engagements?.length > 0 ? (
+                            conversation.engagements.map((engagement, idx) => (
+                              <span
+                                key={idx}
+                                className="inline-flex items-center px-2 py-1 rounded text-xs font-medium text-gray-700"
+                                style={{ backgroundColor: "#FDE68A" }}
+                              >
+                                {engagement.title}
+                              </span>
+                            ))
+                          ) : (
+                            <span
+                              className="inline-flex items-center px-2 py-1 rounded text-xs font-medium text-gray-400"
+                              style={{ backgroundColor: "#F3F4F6" }}
+                            >
+                              No engagement found
+                            </span>
+                          )}
+                        </div>
                       </div>
 
                       {/* Right side - Message info */}
@@ -526,20 +561,25 @@ export default function Home() {
                         )}
                         <div className="font-medium mb-1">
                           {(() => {
-                            const cachedMessages = messagesCache[conversation.uuid] || [];
+                            const cachedMessages =
+                              messagesCache[conversation.uuid] || [];
                             const mentorMessageCount = cachedMessages.filter(
-                              (msg: Message) => msg.sender?.roles.includes('mentor')
+                              (msg: Message) =>
+                                msg.sender?.roles.includes("mentor")
                             ).length;
 
-                            const totalCount = messageCount !== null
-                              ? messageCount === 0
-                                ? "0"
-                                : messageCount.toString()
-                              : "-";
+                            const totalCount =
+                              messageCount !== null
+                                ? messageCount === 0
+                                  ? "0"
+                                  : messageCount.toString()
+                                : "-";
 
-                            const mentorPart = cachedMessages.length > 0 && mentorMessageCount > 0
-                              ? ` (${mentorMessageCount})`
-                              : "";
+                            const mentorPart =
+                              cachedMessages.length > 0 &&
+                              mentorMessageCount > 0
+                                ? ` (${mentorMessageCount})`
+                                : "";
 
                             return `${totalCount} messages${mentorPart}`;
                           })()}
@@ -566,9 +606,8 @@ export default function Home() {
 
                           // Check if latest message sender is a mentor
                           const isMentorLast =
-                            latestMessage.sender?.roles.includes(
-                              "mentor"
-                            ) || false;
+                            latestMessage.sender?.roles.includes("mentor") ||
+                            false;
 
                           // Find mentors in this conversation
                           const mentorUuids = conversation.users
@@ -578,13 +617,35 @@ export default function Home() {
                             .map((user) => user.uuid);
 
                           // Check if any mentor has read the latest message
-                          const readByMentor = mentorUuids.some(
-                            (mentorUuid) =>
-                              latestMessage.readBy?.includes(mentorUuid)
+                          const readByMentor = mentorUuids.some((mentorUuid) =>
+                            latestMessage.readBy?.includes(mentorUuid)
                           );
 
+                          // Calculate mentor average response time
+                          const responseTimeData = calculateMentorAverageResponseTime(cachedMessages);
+
                           return (
-                            <div className="absolute bottom-4 right-4">
+                            <div className="absolute bottom-4 right-4 flex items-center gap-2">
+                              {/* Mentor average response time */}
+                              {responseTimeData && (
+                                <span className="text-xs text-gray-500 font-mono">
+                                  {(() => {
+                                    const hours = responseTimeData.averageTimeMs / (1000 * 60 * 60);
+                                    if (hours < 1) {
+                                      const minutes = responseTimeData.averageTimeMs / (1000 * 60);
+                                      return minutes.toFixed(1) + 'm';
+                                    } else if (hours > 24) {
+                                      const days = hours / 24;
+                                      return days.toFixed(1) + 'd';
+                                    } else {
+                                      return hours.toFixed(1) + 'h';
+                                    }
+                                  })()}
+                                </span>
+                              )}
+
+                              {/* Status indicator */}
+                              <div>
                               {isMentorLast ? (
                                 // Mentor responded - show single check
                                 <Check
@@ -610,6 +671,7 @@ export default function Home() {
                                   }}
                                 />
                               )}
+                              </div>
                             </div>
                           );
                         }
@@ -650,8 +712,8 @@ export default function Home() {
                   )}
                   <h3 className="font-semibold text-gray-900">
                     {selectedConversation.cometConversationType === "group"
-                      ? "Group Messages"
-                      : "Direct Messages"}
+                      ? "Group Chat"
+                      : "Direct Message"}
                   </h3>
                 </div>
               </div>
