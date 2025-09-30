@@ -32,7 +32,8 @@ export async function GET(
         mediaUrl: true,
         reactions: true,
         reactedBy: true,
-        readBy: true,\n        readByAll: true
+        readBy: true,
+        readByAll: true
       },
       orderBy: {
         createdAt: 'asc'
