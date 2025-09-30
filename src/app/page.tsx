@@ -32,6 +32,7 @@ type Message = {
   mediaUrl: string | null;
   reactions: string[];
   reactedBy: string[];
+  readBy: string[];
   readByAll: boolean;
   sender: {
     uuid: string;
@@ -473,15 +474,23 @@ export default function Home() {
 
                             // Check if latest message sender is a mentor
                             const isMentorLast = latestMessage.sender?.roles.includes('mentor') || false;
-                            // Check if message is read by all
-                            const isReadByAll = latestMessage.readByAll;
+
+                            // Find mentors in this conversation
+                            const mentorUuids = conversation.users
+                              .filter(user => user.details?.roles.includes('mentor'))
+                              .map(user => user.uuid);
+
+                            // Check if any mentor has read the latest message
+                            const readByMentor = mentorUuids.some(mentorUuid =>
+                              latestMessage.readBy?.includes(mentorUuid)
+                            );
 
                             return (
                               <div className="flex justify-center">
                                 {isMentorLast ? (
                                   // Mentor responded - show check-check (double check)
                                   <CheckCheck className="h-4 w-4" style={{ color: '#059669' }} />
-                                ) : isReadByAll ? (
+                                ) : readByMentor ? (
                                   // Message read by mentor but no response - show single check
                                   <Check className="h-4 w-4" style={{ color: '#059669' }} />
                                 ) : (
