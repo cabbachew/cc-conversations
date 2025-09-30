@@ -65,6 +65,7 @@ export default function Home() {
   const [selectedConversation, setSelectedConversation] =
     useState<Conversation | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [messagesCache, setMessagesCache] = useState<Record<string, Message[]>>({});
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [conversationMessageCounts, setConversationMessageCounts] = useState<Record<string, number>>({});
   const [conversationLatestDates, setConversationLatestDates] = useState<Record<string, string>>({});
@@ -128,6 +129,45 @@ export default function Home() {
       });
 
       setConversations(filtered);
+
+      // Preload messages for engagement searches to reduce individual API calls
+      if (engagementSearch.trim() && filtered.length > 0 && filtered.length <= 10) {
+        const preloadPromises = filtered.map(async (conversation: Conversation) => {
+          if (!messagesCache[conversation.uuid]) {
+            try {
+              const response = await fetch(`/api/messages/${conversation.uuid}`);
+              const data = await response.json();
+              if (response.ok) {
+                setMessagesCache(prev => ({
+                  ...prev,
+                  [conversation.uuid]: data.messages
+                }));
+                setConversationMessageCounts(prev => ({
+                  ...prev,
+                  [conversation.uuid]: data.messages.length
+                }));
+
+                const latestMessage = data.messages.length > 0 ?
+                  data.messages.reduce((latest: Message, current: Message) =>
+                    new Date(current.createdAt) > new Date(latest.createdAt) ? current : latest
+                  ) : null;
+
+                if (latestMessage) {
+                  setConversationLatestDates(prev => ({
+                    ...prev,
+                    [conversation.uuid]: latestMessage.createdAt
+                  }));
+                }
+              }
+            } catch (error) {
+              console.error(`Error preloading messages for ${conversation.uuid}:`, error);
+            }
+          }
+        });
+
+        // Execute preloading in background
+        Promise.all(preloadPromises).catch(console.error);
+      }
     } catch (error) {
       console.error("Search error:", error);
       setConversations([]);
@@ -137,6 +177,12 @@ export default function Home() {
   }, [engagementSearch, userSearch]);
 
   const fetchMessages = async (conversationUuid: string) => {
+    // Check if messages are already cached from preloading
+    if (messagesCache[conversationUuid]) {
+      setMessages(messagesCache[conversationUuid]);
+      return;
+    }
+
     setLoadingMessages(true);
     try {
       const response = await fetch(`/api/messages/${conversationUuid}`);
@@ -144,6 +190,10 @@ export default function Home() {
 
       if (response.ok) {
         setMessages(data.messages);
+        setMessagesCache(prev => ({
+          ...prev,
+          [conversationUuid]: data.messages
+        }));
         const latestMessage = data.messages.length > 0 ?
           data.messages.reduce((latest: Message, current: Message) =>
             new Date(current.createdAt) > new Date(latest.createdAt) ? current : latest
