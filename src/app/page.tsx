@@ -174,7 +174,7 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
-  }, [engagementSearch, userSearch]);
+  }, [engagementSearch, userSearch, messagesCache]);
 
   const fetchMessages = async (conversationUuid: string) => {
     // Check if messages are already cached from preloading
