@@ -1,7 +1,17 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { Search, MessageCircle, Paperclip, Loader2, User, Users, ArrowLeft, Check, CheckCheck, Circle } from "lucide-react";
+import {
+  Search,
+  MessageCircle,
+  Paperclip,
+  Loader2,
+  User,
+  Users,
+  ArrowLeft,
+  Check,
+  Circle,
+} from "lucide-react";
 
 type User = {
   uuid: string;
@@ -66,10 +76,16 @@ export default function Home() {
   const [selectedConversation, setSelectedConversation] =
     useState<Conversation | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [messagesCache, setMessagesCache] = useState<Record<string, Message[]>>({});
+  const [messagesCache, setMessagesCache] = useState<Record<string, Message[]>>(
+    {}
+  );
   const [loadingMessages, setLoadingMessages] = useState(false);
-  const [conversationMessageCounts, setConversationMessageCounts] = useState<Record<string, number>>({});
-  const [conversationLatestDates, setConversationLatestDates] = useState<Record<string, string>>({});
+  const [conversationMessageCounts, setConversationMessageCounts] = useState<
+    Record<string, number>
+  >({});
+  const [conversationLatestDates, setConversationLatestDates] = useState<
+    Record<string, string>
+  >({});
 
   const searchConversations = useCallback(async () => {
     if (!engagementSearch.trim() && !userSearch.trim()) {
@@ -132,39 +148,56 @@ export default function Home() {
       setConversations(filtered);
 
       // Preload messages for engagement searches to reduce individual API calls
-      if (engagementSearch.trim() && filtered.length > 0 && filtered.length <= 10) {
-        const preloadPromises = filtered.map(async (conversation: Conversation) => {
-          if (!messagesCache[conversation.uuid]) {
-            try {
-              const response = await fetch(`/api/messages/${conversation.uuid}`);
-              const data = await response.json();
-              if (response.ok) {
-                setMessagesCache(prev => ({
-                  ...prev,
-                  [conversation.uuid]: data.messages
-                }));
-                setConversationMessageCounts(prev => ({
-                  ...prev,
-                  [conversation.uuid]: data.messages.length
-                }));
-
-                const latestMessage = data.messages.length > 0 ?
-                  data.messages.reduce((latest: Message, current: Message) =>
-                    new Date(current.createdAt) > new Date(latest.createdAt) ? current : latest
-                  ) : null;
-
-                if (latestMessage) {
-                  setConversationLatestDates(prev => ({
+      if (
+        engagementSearch.trim() &&
+        filtered.length > 0 &&
+        filtered.length <= 10
+      ) {
+        const preloadPromises = filtered.map(
+          async (conversation: Conversation) => {
+            if (!messagesCache[conversation.uuid]) {
+              try {
+                const response = await fetch(
+                  `/api/messages/${conversation.uuid}`
+                );
+                const data = await response.json();
+                if (response.ok) {
+                  setMessagesCache((prev) => ({
                     ...prev,
-                    [conversation.uuid]: latestMessage.createdAt
+                    [conversation.uuid]: data.messages,
                   }));
+                  setConversationMessageCounts((prev) => ({
+                    ...prev,
+                    [conversation.uuid]: data.messages.length,
+                  }));
+
+                  const latestMessage =
+                    data.messages.length > 0
+                      ? data.messages.reduce(
+                          (latest: Message, current: Message) =>
+                            new Date(current.createdAt) >
+                            new Date(latest.createdAt)
+                              ? current
+                              : latest
+                        )
+                      : null;
+
+                  if (latestMessage) {
+                    setConversationLatestDates((prev) => ({
+                      ...prev,
+                      [conversation.uuid]: latestMessage.createdAt,
+                    }));
+                  }
                 }
+              } catch (error) {
+                console.error(
+                  `Error preloading messages for ${conversation.uuid}:`,
+                  error
+                );
               }
-            } catch (error) {
-              console.error(`Error preloading messages for ${conversation.uuid}:`, error);
             }
           }
-        });
+        );
 
         // Execute preloading in background
         Promise.all(preloadPromises).catch(console.error);
@@ -191,32 +224,36 @@ export default function Home() {
 
       if (response.ok) {
         setMessages(data.messages);
-        setMessagesCache(prev => ({
+        setMessagesCache((prev) => ({
           ...prev,
-          [conversationUuid]: data.messages
+          [conversationUuid]: data.messages,
         }));
-        const latestMessage = data.messages.length > 0 ?
-          data.messages.reduce((latest: Message, current: Message) =>
-            new Date(current.createdAt) > new Date(latest.createdAt) ? current : latest
-          ) : null;
+        const latestMessage =
+          data.messages.length > 0
+            ? data.messages.reduce((latest: Message, current: Message) =>
+                new Date(current.createdAt) > new Date(latest.createdAt)
+                  ? current
+                  : latest
+              )
+            : null;
 
-        setConversationMessageCounts(prev => ({
+        setConversationMessageCounts((prev) => ({
           ...prev,
-          [conversationUuid]: data.messages.length
+          [conversationUuid]: data.messages.length,
         }));
 
         if (latestMessage) {
-          setConversationLatestDates(prev => ({
+          setConversationLatestDates((prev) => ({
             ...prev,
-            [conversationUuid]: latestMessage.createdAt
+            [conversationUuid]: latestMessage.createdAt,
           }));
         }
       } else {
         console.error("Error fetching messages:", data.error);
         setMessages([]);
-        setConversationMessageCounts(prev => ({
+        setConversationMessageCounts((prev) => ({
           ...prev,
-          [conversationUuid]: 0
+          [conversationUuid]: 0,
         }));
       }
     } catch (error) {
@@ -251,7 +288,16 @@ export default function Home() {
   };
 
   return (
-    <div className="h-screen bg-gray-50 flex flex-col lg:flex-row">
+    <div className="h-screen bg-gray-50 flex flex-col lg:flex-row relative">
+      {/* Responsive Breakpoint Indicator*/}
+      <div className="fixed top-4 right-4 z-50 bg-black text-white text-xs px-2 py-1 rounded font-mono font-bold">
+        <span className="block sm:hidden">XS</span>
+        <span className="hidden sm:block md:hidden">SM</span>
+        <span className="hidden md:block lg:hidden">MD</span>
+        <span className="hidden lg:block xl:hidden">LG</span>
+        <span className="hidden xl:block 2xl:hidden">XL</span>
+        <span className="hidden 2xl:block">2XL</span>
+      </div>
       {/* Left Sidebar - Search */}
       <div className="w-full lg:w-80 bg-white border-r lg:border-r border-b lg:border-b-0 border-gray-200 flex flex-col flex-shrink-0">
         <div className="p-6 border-b border-gray-200">
@@ -326,7 +372,11 @@ export default function Home() {
       </div>
 
       {/* Middle Column - Conversations */}
-      <div className={`flex-1 min-w-0 bg-white border-r border-gray-200 flex-col ${selectedConversation && 'hidden lg:flex'} ${!selectedConversation ? 'flex' : 'hidden lg:flex'}`}>
+      <div
+        className={`flex-1 min-w-0 bg-white border-r border-gray-200 flex-col ${
+          selectedConversation && "hidden lg:flex"
+        } ${!selectedConversation ? "flex" : "hidden lg:flex"}`}
+      >
         <div className="p-4 border-b border-gray-200">
           <h2 className="text-lg font-semibold text-gray-900">
             Conversations{" "}
@@ -337,7 +387,7 @@ export default function Home() {
         <div className="flex-1 overflow-y-auto">
           {loading ? (
             <div className="flex items-center justify-center h-32">
-                <Loader2 className="h-8 w-8 animate-spin" />
+              <Loader2 className="h-8 w-8 animate-spin" />
             </div>
           ) : conversations.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-64 text-gray-500">
@@ -351,11 +401,16 @@ export default function Home() {
           ) : (
             <div className="space-y-0">
               {conversations.map((conversation) => {
-                const messageCount = conversationMessageCounts[conversation.uuid] ?? null;
-                const latestMessageDate = conversationLatestDates[conversation.uuid];
+                const messageCount =
+                  conversationMessageCounts[conversation.uuid] ?? null;
+                const latestMessageDate =
+                  conversationLatestDates[conversation.uuid];
                 const hasNoMessages = messageCount === 0;
-                const isSelected = selectedConversation?.uuid === conversation.uuid;
-                const daysSince = latestMessageDate ? getDaysSince(latestMessageDate) : null;
+                const isSelected =
+                  selectedConversation?.uuid === conversation.uuid;
+                const daysSince = latestMessageDate
+                  ? getDaysSince(latestMessageDate)
+                  : null;
 
                 return (
                   <div
@@ -387,17 +442,25 @@ export default function Home() {
                         <div className="flex flex-wrap gap-1 mb-2">
                           {conversation.users.slice(0, 3).map((user, idx) => {
                             const roles = user.details?.roles || [];
-                            const primaryRole = roles.includes('guardian') ? 'guardian' :
-                                               roles.includes('mentor') ? 'mentor' :
-                                               roles.includes('student') ? 'student' : null;
+                            const primaryRole = roles.includes("guardian")
+                              ? "guardian"
+                              : roles.includes("mentor")
+                              ? "mentor"
+                              : roles.includes("student")
+                              ? "student"
+                              : null;
 
                             const roleConfig = {
-                              guardian: { letter: 'G' },
-                              mentor: { letter: 'M' },
-                              student: { letter: 'S' }
+                              guardian: { letter: "G" },
+                              mentor: { letter: "M" },
+                              student: { letter: "S" },
                             };
 
-                            const config = primaryRole ? roleConfig[primaryRole as keyof typeof roleConfig] : null;
+                            const config = primaryRole
+                              ? roleConfig[
+                                  primaryRole as keyof typeof roleConfig
+                                ]
+                              : null;
 
                             return (
                               <div key={idx} className="flex items-center">
@@ -423,7 +486,10 @@ export default function Home() {
                         {(conversation.engagement ||
                           conversation.engagements.length > 0) && (
                           <div>
-                            <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-200 text-gray-700">
+                            <span
+                              className="inline-flex items-center px-2 py-1 rounded text-xs font-medium text-gray-700"
+                              style={{ backgroundColor: "#FDE68A" }}
+                            >
                               {conversation.engagement?.title ||
                                 conversation.engagements[0]?.title ||
                                 "Engagement"}
@@ -440,9 +506,11 @@ export default function Home() {
                               {new Date(latestMessageDate).toLocaleDateString()}
                             </div>
                             <div className="mb-1">
-                              {daysSince === 0 ? 'Today' :
-                               daysSince === 1 ? '1 day ago' :
-                               `${daysSince} days ago`}
+                              {daysSince === 0
+                                ? "Today"
+                                : daysSince === 1
+                                ? "1 day ago"
+                                : `${daysSince} days ago`}
                             </div>
                           </>
                         ) : messageCount === 0 ? (
@@ -457,51 +525,81 @@ export default function Home() {
                           </>
                         )}
                         <div className="font-medium mb-1">
-                          {messageCount !== null ?
-                            (messageCount === 0 ? '0' : messageCount.toString()) :
-                            '-'
-                          } messages
+                          {messageCount !== null
+                            ? messageCount === 0
+                              ? "0"
+                              : messageCount.toString()
+                            : "-"}{" "}
+                          messages
                         </div>
                         {/* Mentor response status */}
-                        {messageCount && messageCount > 0 && (() => {
-                          // Check if we have cached messages for this conversation to determine mentor status
-                          const cachedMessages = messagesCache[conversation.uuid] || [];
-                          if (cachedMessages.length > 0) {
-                            // Find the latest message
-                            const latestMessage = cachedMessages.reduce((latest: Message, current: Message) =>
-                              new Date(current.createdAt) > new Date(latest.createdAt) ? current : latest
-                            );
+                        {messageCount &&
+                          messageCount > 0 &&
+                          (() => {
+                            // Check if we have cached messages for this conversation to determine mentor status
+                            const cachedMessages =
+                              messagesCache[conversation.uuid] || [];
+                            if (cachedMessages.length > 0) {
+                              // Find the latest message
+                              const latestMessage = cachedMessages.reduce(
+                                (latest: Message, current: Message) =>
+                                  new Date(current.createdAt) >
+                                  new Date(latest.createdAt)
+                                    ? current
+                                    : latest
+                              );
 
-                            // Check if latest message sender is a mentor
-                            const isMentorLast = latestMessage.sender?.roles.includes('mentor') || false;
+                              // Check if latest message sender is a mentor
+                              const isMentorLast =
+                                latestMessage.sender?.roles.includes(
+                                  "mentor"
+                                ) || false;
 
-                            // Find mentors in this conversation
-                            const mentorUuids = conversation.users
-                              .filter(user => user.details?.roles.includes('mentor'))
-                              .map(user => user.uuid);
+                              // Find mentors in this conversation
+                              const mentorUuids = conversation.users
+                                .filter((user) =>
+                                  user.details?.roles.includes("mentor")
+                                )
+                                .map((user) => user.uuid);
 
-                            // Check if any mentor has read the latest message
-                            const readByMentor = mentorUuids.some(mentorUuid =>
-                              latestMessage.readBy?.includes(mentorUuid)
-                            );
+                              // Check if any mentor has read the latest message
+                              const readByMentor = mentorUuids.some(
+                                (mentorUuid) =>
+                                  latestMessage.readBy?.includes(mentorUuid)
+                              );
 
-                            return (
-                              <div className="flex justify-center">
-                                {isMentorLast ? (
-                                  // Mentor responded - show check-check (double check)
-                                  <CheckCheck className="h-4 w-4" style={{ color: '#059669' }} />
-                                ) : readByMentor ? (
-                                  // Message read by mentor but no response - show single check
-                                  <Check className="h-4 w-4" style={{ color: '#059669' }} />
-                                ) : (
-                                  // Mentor hasn't read - show red dot
-                                  <Circle className="h-3 w-3 text-red-500 fill-red-500" />
-                                )}
-                              </div>
-                            );
-                          }
-                          return null;
-                        })()}
+                              return (
+                                <div className="flex justify-center">
+                                  {isMentorLast ? (
+                                    // Mentor responded - show single check
+                                    <Check
+                                      className="h-4 w-4"
+                                      style={{ color: "#059669" }}
+                                    />
+                                  ) : readByMentor ? (
+                                    // Message read by mentor but no response - show gray dot
+                                    <Circle
+                                      className="h-3 w-3"
+                                      style={{
+                                        color: "#6B7280",
+                                        fill: "#6B7280",
+                                      }}
+                                    />
+                                  ) : (
+                                    // Mentor hasn't read - show red dot
+                                    <Circle
+                                      className="h-3 w-3"
+                                      style={{
+                                        color: "#F87171",
+                                        fill: "#F87171",
+                                      }}
+                                    />
+                                  )}
+                                </div>
+                              );
+                            }
+                            return null;
+                          })()}
                       </div>
                     </div>
                   </div>
@@ -513,7 +611,11 @@ export default function Home() {
       </div>
 
       {/* Right Column - Messages */}
-      <div className={`flex-1 min-w-0 bg-gray-50 flex-col ${selectedConversation ? 'flex' : 'hidden lg:flex'}`}>
+      <div
+        className={`flex-1 min-w-0 bg-gray-50 flex-col ${
+          selectedConversation ? "flex" : "hidden lg:flex"
+        }`}
+      >
         {selectedConversation ? (
           <>
             <div className="p-4 bg-white border-b border-gray-200">
@@ -548,7 +650,7 @@ export default function Home() {
             <div className="flex-1 overflow-y-auto p-4">
               {loadingMessages ? (
                 <div className="flex items-center justify-center h-32">
-                    <Loader2 className="h-6 w-6 animate-spin" />
+                  <Loader2 className="h-6 w-6 animate-spin" />
                 </div>
               ) : messages.length === 0 ? (
                 <div className="text-center text-gray-500 mt-8">
@@ -556,80 +658,130 @@ export default function Home() {
                   <p className="text-sm">No messages found</p>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  {messages.map((message) => (
-                    <div
-                      key={message.uuid}
-                      className="bg-white rounded-lg p-3 shadow-sm"
-                    >
-                      <div className="flex justify-between items-start mb-2">
-                        <div>
-                          <span className="font-medium text-gray-900 text-sm">
-                            {message.sender?.fullName || "Unknown User"}
-                          </span>
-                          <div className="flex space-x-1 mt-1">
-                            {message.sender?.roles.map((role, idx) => (
-                              <span
-                                key={idx}
-                                className={`px-2 py-0.5 text-xs font-medium rounded-full ${
-                                  role === "mentor"
-                                    ? "bg-blue-100 text-blue-800"
-                                    : role === "student"
-                                    ? "bg-green-100 text-green-800"
-                                    : role === "guardian"
-                                    ? "bg-purple-100 text-purple-800"
-                                    : "bg-gray-100 text-gray-800"
-                                }`}
-                              >
-                                {role}
+                <div className="space-y-6">
+                  {messages.map((message, index) => {
+                    const currentDate = new Date(
+                      message.createdAt
+                    ).toLocaleDateString();
+                    const prevMessage = index > 0 ? messages[index - 1] : null;
+                    const prevDate = prevMessage
+                      ? new Date(prevMessage.createdAt).toLocaleDateString()
+                      : null;
+                    const showDateSeparator = currentDate !== prevDate;
+                    const isMentor =
+                      message.sender?.roles.includes("mentor") || false;
+
+                    return (
+                      <div key={message.uuid}>
+                        {showDateSeparator && (
+                          <div className="flex justify-center my-4">
+                            <div className="bg-gray-100 text-gray-600 text-xs px-3 py-1 rounded-full">
+                              {currentDate}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Message container */}
+                        <div className="flex px-4">
+                          <div
+                            className={`max-w-xs sm:max-w-sm md:max-w-md lg:max-w-xs lg:min-w-[240px] ${
+                              isMentor ? "ml-auto" : "mr-auto"
+                            }`}
+                          >
+                            {/* User name and role */}
+                            <div
+                              className={`flex items-center gap-2 mb-1 ${
+                                isMentor ? "justify-end" : "justify-start"
+                              }`}
+                            >
+                              <span className="text-xs text-gray-600">
+                                {message.sender?.fullName || "Unknown User"}
                               </span>
-                            ))}
+                              <div className="flex space-x-1">
+                                {message.sender?.roles.map((role, idx) => (
+                                  <span
+                                    key={idx}
+                                    className={`px-2 py-0.5 text-xs font-medium rounded-full ${
+                                      role === "mentor"
+                                        ? "bg-blue-100 text-blue-800"
+                                        : role === "student"
+                                        ? "bg-green-100 text-green-800"
+                                        : role === "guardian"
+                                        ? "bg-purple-100 text-purple-800"
+                                        : "bg-gray-100 text-gray-800"
+                                    }`}
+                                  >
+                                    {role}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* Message bubble */}
+                            <div
+                              className={`rounded-lg p-3 lg:p-2 shadow-sm ${
+                                isMentor
+                                  ? "bg-blue-50 border border-blue-100"
+                                  : "bg-white border border-gray-200"
+                              }`}
+                            >
+                              {message.text && (
+                                <p className="text-sm lg:text-xs text-gray-700 leading-relaxed mb-2 break-words overflow-wrap-anywhere">
+                                  {message.text}
+                                </p>
+                              )}
+
+                              {message.mediaUrl && (
+                                <div className="mb-2">
+                                  {message.mediaMimeType?.startsWith(
+                                    "image/"
+                                  ) ? (
+                                    <img
+                                      src={message.mediaUrl}
+                                      alt={message.mediaName || "Attachment"}
+                                      className="max-w-full h-32 object-cover rounded border"
+                                    />
+                                  ) : (
+                                    <a
+                                      href={message.mediaUrl}
+                                      className="text-blue-600 hover:text-blue-700 text-sm underline"
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                    >
+                                      <Paperclip className="inline h-3 w-3 mr-1" />
+                                      {message.mediaName || "Attachment"}
+                                    </a>
+                                  )}
+                                </div>
+                              )}
+
+                              {message.reactions.length > 0 && (
+                                <div className="flex space-x-1 mb-2">
+                                  {message.reactions.map((reaction, idx) => (
+                                    <span key={idx} className="text-sm">
+                                      {reaction}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+
+                              {/* Time - always right-justified */}
+                              <div className="text-xs text-gray-500 text-right">
+                                {new Date(message.createdAt).toLocaleTimeString(
+                                  "en-US",
+                                  {
+                                    hour: "numeric",
+                                    minute: "2-digit",
+                                    hour12: true,
+                                  }
+                                )}
+                              </div>
+                            </div>
                           </div>
                         </div>
-                        <span className="text-xs text-gray-500">
-                          {new Date(message.createdAt).toLocaleDateString()}
-                        </span>
                       </div>
-
-                      {message.text && (
-                        <p className="text-sm text-gray-700 leading-relaxed mb-2">
-                          {message.text}
-                        </p>
-                      )}
-
-                      {message.mediaUrl && (
-                        <div className="mb-2">
-                          {message.mediaMimeType?.startsWith("image/") ? (
-                            <img
-                              src={message.mediaUrl}
-                              alt={message.mediaName || "Attachment"}
-                              className="max-w-full h-32 object-cover rounded border"
-                            />
-                          ) : (
-                            <a
-                              href={message.mediaUrl}
-                              className="text-blue-600 hover:text-blue-700 text-sm underline"
-                              target="_blank"
-                              rel="noopener noreferrer"
-                            >
-                              <Paperclip className="inline h-3 w-3 mr-1" />
-                              {message.mediaName || "Attachment"}
-                            </a>
-                          )}
-                        </div>
-                      )}
-
-                      {message.reactions.length > 0 && (
-                        <div className="flex space-x-1">
-                          {message.reactions.map((reaction, idx) => (
-                            <span key={idx} className="text-sm">
-                              {reaction}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
