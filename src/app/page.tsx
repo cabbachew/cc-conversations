@@ -512,7 +512,7 @@ export default function Home() {
                             >
                               {conversation.engagement.title}
                             </span>
-                          ) : conversation.engagements?.length > 0 ? (
+                          ) : (conversation.engagements?.length ?? 0) > 0 ? (
                             conversation.engagements.map((engagement, idx) => (
                               <span
                                 key={idx}
@@ -588,8 +588,7 @@ export default function Home() {
                     </div>
 
                     {/* Mentor response status - bottom right */}
-                    {messageCount &&
-                      messageCount > 0 &&
+                    {(messageCount ?? 0) > 0 &&
                       (() => {
                         // Check if we have cached messages for this conversation to determine mentor status
                         const cachedMessages =
