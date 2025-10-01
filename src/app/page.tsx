@@ -97,6 +97,9 @@ export default function Home() {
       return;
     }
 
+    // Clear active filter when searching
+    setActiveFilter("all");
+
     setLoading(true);
     try {
       const response = await fetch("/api/conversations");
@@ -357,27 +360,14 @@ export default function Home() {
             {loading ? "Searching..." : "Search"}
           </button>
 
-          {/* Clear Button */}
-          {(engagementSearch || userSearch) && (
-            <button
-              onClick={() => {
-                setEngagementSearch("");
-                setUserSearch("");
-                setConversations([]);
-                setSelectedConversation(null);
-                setMessages([]);
-              }}
-              className="w-full mt-2 text-gray-600 hover:text-gray-800 text-sm py-1"
-            >
-              Clear All
-            </button>
-          )}
-
           {/* Quick View Buttons */}
           <div className="mt-4 space-y-2">
             <div className="flex gap-2">
               <button
                 onClick={async () => {
+                  // Clear search terms first
+                  setEngagementSearch("");
+                  setUserSearch("");
                   setActiveFilter("recent");
                   setLoading(true);
                   try {
@@ -395,8 +385,6 @@ export default function Home() {
                     );
 
                     setConversations(recentConversations);
-                    setEngagementSearch("");
-                    setUserSearch("");
 
                     // Load messages for metrics
                     for (const conversation of recentConversations) {
@@ -453,6 +441,9 @@ export default function Home() {
               </button>
               <button
                 onClick={async () => {
+                  // Clear search terms first
+                  setEngagementSearch("");
+                  setUserSearch("");
                   setActiveFilter("needs-response");
                   setLoading(true);
                   try {
@@ -501,8 +492,6 @@ export default function Home() {
                       });
 
                     setConversations(conversationsNeedingResponse);
-                    setEngagementSearch("");
-                    setUserSearch("");
 
                     // Set latest message dates from the API response first
                     const latestDates: Record<string, string> = {};
@@ -559,11 +548,16 @@ export default function Home() {
                 Needs Response
               </button>
             </div>
-            {activeFilter !== "all" && (
+            {(activeFilter !== "all" || engagementSearch || userSearch || conversations.length > 0) && (
               <button
                 onClick={() => {
                   setActiveFilter("all");
+                  setEngagementSearch("");
+                  setUserSearch("");
                   setConversations([]);
+                  setSelectedConversation(null);
+                  setMessages([]);
+                  setLoadingMessages(false);
                 }}
                 className="w-full py-1 text-xs text-gray-600 hover:text-gray-800"
               >
