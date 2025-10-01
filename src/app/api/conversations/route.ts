@@ -1,4 +1,4 @@
-import { PrismaClient } from "../../../generated/prisma/";
+import { PrismaClient } from "@prisma/client";
 import { NextResponse } from "next/server";
 
 const prisma = new PrismaClient();
@@ -12,23 +12,23 @@ export async function GET() {
         createdAt: true,
         updatedAt: true,
         cometConversationId: true,
-        cometConversationType: true
+        cometConversationType: true,
       },
       orderBy: {
-        updatedAt: 'desc'
-      }
+        updatedAt: "desc",
+      },
     });
 
     // Fetch user details for all user UUIDs in conversations
     const allUserUuids = Array.from(
-      new Set(conversations.flatMap(conv => conv.userUuids))
+      new Set(conversations.flatMap((conv) => conv.userUuids))
     );
 
     const users = await prisma.users.findMany({
       where: {
         uuid: {
-          in: allUserUuids
-        }
+          in: allUserUuids,
+        },
       },
       select: {
         uuid: true,
@@ -36,14 +36,14 @@ export async function GET() {
         lastName: true,
         fullName: true,
         roles: true,
-        email: true
-      }
+        email: true,
+      },
     });
 
     // Extract engagement UUIDs from group conversations
     const groupEngagementUuids = conversations
-      .filter(conv => conv.cometConversationType === 'group')
-      .map(conv => {
+      .filter((conv) => conv.cometConversationType === "group")
+      .map((conv) => {
         const match = conv.cometConversationId.match(/group_group-(.+)/);
         return match ? match[1] : null;
       })
@@ -51,29 +51,42 @@ export async function GET() {
 
     // Extract user pairs from user conversations
     const userConversationPairs = conversations
-      .filter(conv => conv.cometConversationType === 'user')
-      .map(conv => {
-        const match = conv.cometConversationId.match(/([0-9a-f-]{36})_user_([0-9a-f-]{36})/);
-        return match ? { conversationUuid: conv.uuid, userUuid1: match[1], userUuid2: match[2] } : null;
+      .filter((conv) => conv.cometConversationType === "user")
+      .map((conv) => {
+        const match = conv.cometConversationId.match(
+          /([0-9a-f-]{36})_user_([0-9a-f-]{36})/
+        );
+        return match
+          ? {
+              conversationUuid: conv.uuid,
+              userUuid1: match[1],
+              userUuid2: match[2],
+            }
+          : null;
       })
       .filter((pair): pair is NonNullable<typeof pair> => Boolean(pair));
 
     // Get all unique user UUIDs from user conversations for efficient lookup
     const userConversationUserUuids = Array.from(
-      new Set(userConversationPairs.flatMap(pair => [pair.userUuid1, pair.userUuid2]))
+      new Set(
+        userConversationPairs.flatMap((pair) => [
+          pair.userUuid1,
+          pair.userUuid2,
+        ])
+      )
     );
 
     // Fetch engagement details for group conversations
     const groupEngagements = await prisma.engagements.findMany({
       where: {
         uuid: {
-          in: groupEngagementUuids
-        }
+          in: groupEngagementUuids,
+        },
       },
       select: {
         uuid: true,
-        title: true
-      }
+        title: true,
+      },
     });
 
     // Fetch engagement relationships for user conversations
@@ -82,10 +95,10 @@ export async function GET() {
         users_engagements: {
           some: {
             userUuid: {
-              in: userConversationUserUuids
-            }
-          }
-        }
+              in: userConversationUserUuids,
+            },
+          },
+        },
       },
       select: {
         uuid: true,
@@ -99,48 +112,57 @@ export async function GET() {
                 roles: true,
                 guardian_students_guardian_students_guardianUuidTousers: {
                   select: {
-                    studentUuid: true
-                  }
+                    studentUuid: true,
+                  },
                 },
                 guardian_students_guardian_students_studentUuidTousers: {
                   select: {
-                    guardianUuid: true
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
+                    guardianUuid: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
     });
 
     // Create efficient lookup structures
-    const userEngagementLookup = new Map<string, { uuid: string; title: string }[]>();
+    const userEngagementLookup = new Map<
+      string,
+      { uuid: string; title: string }[]
+    >();
 
-    userEngagementsData.forEach(engagement => {
+    userEngagementsData.forEach((engagement) => {
       const mentors: string[] = [];
       const students: string[] = [];
       const guardians = new Set<string>();
 
-      engagement.users_engagements.forEach(ue => {
+      engagement.users_engagements.forEach((ue) => {
         const user = ue.users;
-        if (user.roles.includes('mentor')) {
+        if (user.roles.includes("mentor")) {
           mentors.push(user.uuid);
         }
-        if (user.roles.includes('student')) {
+        if (user.roles.includes("student")) {
           students.push(user.uuid);
           // Add guardians of this student
-          user.guardian_students_guardian_students_studentUuidTousers.forEach(gs => {
-            guardians.add(gs.guardianUuid);
-          });
+          user.guardian_students_guardian_students_studentUuidTousers.forEach(
+            (gs) => {
+              guardians.add(gs.guardianUuid);
+            }
+          );
         }
-        if (user.roles.includes('guardian')) {
+        if (user.roles.includes("guardian")) {
           guardians.add(user.uuid);
         }
       });
 
       // For each combination of users in this engagement, create lookup entries
-      const allParticipants = [...mentors, ...students, ...Array.from(guardians)];
+      const allParticipants = [
+        ...mentors,
+        ...students,
+        ...Array.from(guardians),
+      ];
 
       for (let i = 0; i < allParticipants.length; i++) {
         for (let j = i + 1; j < allParticipants.length; j++) {
@@ -156,34 +178,39 @@ export async function GET() {
 
           userEngagementLookup.get(key1)!.push({
             uuid: engagement.uuid,
-            title: engagement.title
+            title: engagement.title,
           });
           userEngagementLookup.get(key2)!.push({
             uuid: engagement.uuid,
-            title: engagement.title
+            title: engagement.title,
           });
         }
       }
     });
 
     // Create maps for quick lookups
-    const userMap = new Map(users.map(user => [user.uuid, user]));
-    const groupEngagementMap = new Map(groupEngagements.map(eng => [eng.uuid, eng]));
+    const userMap = new Map(users.map((user) => [user.uuid, user]));
+    const groupEngagementMap = new Map(
+      groupEngagements.map((eng) => [eng.uuid, eng])
+    );
 
     // Add user details and engagement info to conversations
-    const conversationsWithDetails = conversations.map(conversation => {
+    const conversationsWithDetails = conversations.map((conversation) => {
       let engagementUuid = null;
       let engagement = null;
       let engagements = null;
 
-      if (conversation.cometConversationType === 'group') {
-        const match = conversation.cometConversationId.match(/group_group-(.+)/);
+      if (conversation.cometConversationType === "group") {
+        const match =
+          conversation.cometConversationId.match(/group_group-(.+)/);
         if (match) {
           engagementUuid = match[1];
           engagement = groupEngagementMap.get(engagementUuid) || null;
         }
-      } else if (conversation.cometConversationType === 'user') {
-        const match = conversation.cometConversationId.match(/([0-9a-f-]{36})_user_([0-9a-f-]{36})/);
+      } else if (conversation.cometConversationType === "user") {
+        const match = conversation.cometConversationId.match(
+          /([0-9a-f-]{36})_user_([0-9a-f-]{36})/
+        );
         if (match) {
           const userUuid1 = match[1];
           const userUuid2 = match[2];
@@ -207,16 +234,19 @@ export async function GET() {
         engagementUuid,
         engagement,
         engagements: engagements || [],
-        users: conversation.userUuids.map(uuid => ({
+        users: conversation.userUuids.map((uuid) => ({
           uuid,
-          details: userMap.get(uuid) || null
-        }))
+          details: userMap.get(uuid) || null,
+        })),
       };
     });
 
     return NextResponse.json(conversationsWithDetails);
   } catch (error) {
-    console.error('Error fetching conversations:', error);
-    return NextResponse.json({ error: 'Failed to fetch conversations' }, { status: 500 });
+    console.error("Error fetching conversations:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch conversations" },
+      { status: 500 }
+    );
   }
 }

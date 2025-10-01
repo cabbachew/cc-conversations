@@ -1,4 +1,4 @@
-import { PrismaClient } from "../../../../generated/prisma/";
+import { PrismaClient } from "@prisma/client";
 import { NextResponse } from "next/server";
 
 const prisma = new PrismaClient();
@@ -11,14 +11,17 @@ export async function GET(
     const { conversationUuid } = await params;
 
     if (!conversationUuid) {
-      return NextResponse.json({ error: 'Conversation UUID is required' }, { status: 400 });
+      return NextResponse.json(
+        { error: "Conversation UUID is required" },
+        { status: 400 }
+      );
     }
 
     // Fetch messages with sender details
     const messages = await prisma.messages.findMany({
       where: {
         conversationUuid: conversationUuid,
-        deletedAt: null
+        deletedAt: null,
       },
       select: {
         uuid: true,
@@ -33,22 +36,24 @@ export async function GET(
         reactions: true,
         reactedBy: true,
         readBy: true,
-        readByAll: true
+        readByAll: true,
       },
       orderBy: {
-        createdAt: 'asc'
-      }
+        createdAt: "asc",
+      },
     });
 
     // Get unique sender UUIDs
-    const senderUuids = Array.from(new Set(messages.map(msg => msg.senderUuid)));
+    const senderUuids = Array.from(
+      new Set(messages.map((msg) => msg.senderUuid))
+    );
 
     // Fetch sender details
     const senders = await prisma.users.findMany({
       where: {
         uuid: {
-          in: senderUuids
-        }
+          in: senderUuids,
+        },
       },
       select: {
         uuid: true,
@@ -57,25 +62,28 @@ export async function GET(
         fullName: true,
         roles: true,
         email: true,
-        profilePictureUrl: true
-      }
+        profilePictureUrl: true,
+      },
     });
 
     // Create sender lookup map
-    const senderMap = new Map(senders.map(sender => [sender.uuid, sender]));
+    const senderMap = new Map(senders.map((sender) => [sender.uuid, sender]));
 
     // Combine messages with sender details
-    const messagesWithSenders = messages.map(message => ({
+    const messagesWithSenders = messages.map((message) => ({
       ...message,
-      sender: senderMap.get(message.senderUuid) || null
+      sender: senderMap.get(message.senderUuid) || null,
     }));
 
     return NextResponse.json({
       messages: messagesWithSenders,
-      totalCount: messages.length
+      totalCount: messages.length,
     });
   } catch (error) {
-    console.error('Error fetching messages:', error);
-    return NextResponse.json({ error: 'Failed to fetch messages' }, { status: 500 });
+    console.error("Error fetching messages:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch messages" },
+      { status: 500 }
+    );
   }
 }

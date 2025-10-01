@@ -1,4 +1,4 @@
-import { PrismaClient } from "../../../../generated/prisma/";
+import { PrismaClient } from "@prisma/client";
 import { NextResponse } from "next/server";
 
 const prisma = new PrismaClient();
@@ -17,7 +17,7 @@ export async function GET() {
     const allMessages = await prisma.messages.findMany({
       where: {
         conversationUuid: {
-          in: conversations.map(c => c.uuid),
+          in: conversations.map((c) => c.uuid),
         },
         deletedAt: null,
       },
@@ -28,12 +28,12 @@ export async function GET() {
         createdAt: true,
       },
       orderBy: {
-        createdAt: 'desc',
+        createdAt: "desc",
       },
     });
 
     // Group messages by conversation and get the latest one
-    const latestByConversation = new Map<string, typeof allMessages[0]>();
+    const latestByConversation = new Map<string, (typeof allMessages)[0]>();
     for (const message of allMessages) {
       if (!latestByConversation.has(message.conversationUuid)) {
         latestByConversation.set(message.conversationUuid, message);
@@ -41,9 +41,11 @@ export async function GET() {
     }
 
     // Get all unique sender UUIDs
-    const senderUuids = Array.from(new Set(
-      Array.from(latestByConversation.values()).map(m => m.senderUuid)
-    ));
+    const senderUuids = Array.from(
+      new Set(
+        Array.from(latestByConversation.values()).map((m) => m.senderUuid)
+      )
+    );
 
     // Batch fetch all senders
     const senders = await prisma.users.findMany({
@@ -59,11 +61,14 @@ export async function GET() {
     });
 
     // Create sender lookup map
-    const senderMap = new Map(senders.map(s => [s.uuid, s]));
+    const senderMap = new Map(senders.map((s) => [s.uuid, s]));
 
     // Build response
     const conversationLatestMessages = [];
-    for (const [conversationUuid, latestMessage] of latestByConversation.entries()) {
+    for (const [
+      conversationUuid,
+      latestMessage,
+    ] of latestByConversation.entries()) {
       conversationLatestMessages.push({
         conversationUuid,
         latestMessage: {
@@ -77,7 +82,10 @@ export async function GET() {
 
     return NextResponse.json(conversationLatestMessages);
   } catch (error) {
-    console.error('Error fetching latest messages:', error);
-    return NextResponse.json({ error: 'Failed to fetch latest messages' }, { status: 500 });
+    console.error("Error fetching latest messages:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch latest messages" },
+      { status: 500 }
+    );
   }
 }
