@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { calculateMentorAverageResponseTime } from "../utils/mentorResponseTime";
 import {
   Search,
@@ -90,6 +90,8 @@ export default function Home() {
   const [activeFilter, setActiveFilter] = useState<
     "all" | "recent" | "needs-response"
   >("all");
+  const filterAfterDate = true; // Always filter by date
+  const cutoffDate = useMemo(() => new Date("2025-09-13"), []);
 
   const searchConversations = useCallback(async () => {
     if (!engagementSearch.trim() && !userSearch.trim()) {
@@ -106,6 +108,12 @@ export default function Home() {
       const allConversations = await response.json();
 
       const filtered = allConversations.filter((conversation: Conversation) => {
+        // Filter by date if toggle is enabled
+        if (filterAfterDate) {
+          const conversationDate = new Date(conversation.createdAt);
+          if (conversationDate < cutoffDate) return false;
+        }
+
         let matchesEngagement = true;
         let matchesUser = true;
 
@@ -215,7 +223,13 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
-  }, [engagementSearch, userSearch, messagesCache]);
+  }, [
+    engagementSearch,
+    userSearch,
+    messagesCache,
+    filterAfterDate,
+    cutoffDate,
+  ]);
 
   const fetchMessages = async (conversationUuid: string) => {
     // Check if messages are already cached from preloading
@@ -380,6 +394,9 @@ export default function Home() {
                     const recentConversations = data.filter(
                       (conv: Conversation) => {
                         const createdDate = new Date(conv.createdAt);
+                        // Apply date filter if toggle is enabled
+                        if (filterAfterDate && createdDate < cutoffDate)
+                          return false;
                         return createdDate >= sevenDaysAgo;
                       }
                     );
@@ -461,29 +478,40 @@ export default function Home() {
                       await latestMessagesResponse.json();
 
                     // Create a map of conversation UUID to latest message
-                    const latestMessageMap = new Map<string, {
-                      sender?: { roles?: string[] } | null;
-                      createdAt?: string;
-                    }>(
-                      latestMessagesData.map((item: {
-                        conversationUuid: string;
-                        latestMessage: {
-                          sender?: { roles?: string[] } | null;
-                          createdAt?: string;
-                        };
-                      }) => [
-                        item.conversationUuid,
-                        item.latestMessage,
-                      ])
+                    const latestMessageMap = new Map<
+                      string,
+                      {
+                        sender?: { roles?: string[] } | null;
+                        createdAt?: string;
+                      }
+                    >(
+                      latestMessagesData.map(
+                        (item: {
+                          conversationUuid: string;
+                          latestMessage: {
+                            sender?: { roles?: string[] } | null;
+                            createdAt?: string;
+                          };
+                        }) => [item.conversationUuid, item.latestMessage]
+                      )
                     );
 
                     // Filter conversations where latest message sender is NOT a mentor
                     const conversationsNeedingResponse =
                       allConversations.filter((conversation: Conversation) => {
+                        // Apply date filter if toggle is enabled
+                        if (filterAfterDate) {
+                          const conversationDate = new Date(
+                            conversation.createdAt
+                          );
+                          if (conversationDate < cutoffDate) return false;
+                        }
+
                         const latestMessage = latestMessageMap.get(
                           conversation.uuid
                         );
-                        if (!latestMessage || !latestMessage.sender) return false;
+                        if (!latestMessage || !latestMessage.sender)
+                          return false;
 
                         const isMentorLast =
                           latestMessage.sender?.roles?.includes("mentor") ||
@@ -500,7 +528,8 @@ export default function Home() {
                         conversation.uuid
                       );
                       if (latestMessage?.createdAt) {
-                        latestDates[conversation.uuid] = latestMessage.createdAt;
+                        latestDates[conversation.uuid] =
+                          latestMessage.createdAt;
                       }
                     }
                     setConversationLatestDates((prev) => ({
@@ -548,7 +577,10 @@ export default function Home() {
                 Needs Response
               </button>
             </div>
-            {(activeFilter !== "all" || engagementSearch || userSearch || conversations.length > 0) && (
+            {(activeFilter !== "all" ||
+              engagementSearch ||
+              userSearch ||
+              conversations.length > 0) && (
               <button
                 onClick={() => {
                   setActiveFilter("all");
@@ -564,6 +596,13 @@ export default function Home() {
                 Clear
               </button>
             )}
+          </div>
+
+          {/* Cutoff Date Info */}
+          <div className="mt-8 px-4">
+            <p className="text-xs text-gray-500 italic">
+              Cutoff Date: 9/13/2025
+            </p>
           </div>
         </div>
       </div>
