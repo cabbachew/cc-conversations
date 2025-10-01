@@ -29,6 +29,7 @@ type User = {
 type Engagement = {
   uuid: string;
   title: string;
+  status: string;
 };
 
 type Message = {
@@ -90,8 +91,23 @@ export default function Home() {
   const [activeFilter, setActiveFilter] = useState<
     "all" | "recent" | "needs-response"
   >("all");
+  const [conversationTypeFilter, setConversationTypeFilter] = useState<
+    "all" | "group" | "dm"
+  >("all");
+  const [dmSubFilter, setDmSubFilter] = useState<
+    "all" | "mentor-student" | "mentor-guardian"
+  >("all");
   const filterAfterDate = true; // Always filter by date
   const cutoffDate = useMemo(() => new Date("2025-09-13"), []);
+  const excludedEngagementUuids = useMemo(
+    () => [
+      "4296f4f5-bd42-4ea1-b06e-9b41dba8d28e",
+      "4ceef523-a2df-47d6-a2ab-18ce9c65dbda",
+      "6e9a2377-08be-4689-b49b-cefd622d0cb9",
+    ],
+    []
+  );
+  const [excludePausedComplete, setExcludePausedComplete] = useState(true);
 
   const searchConversations = useCallback(async () => {
     if (!engagementSearch.trim() && !userSearch.trim()) {
@@ -99,8 +115,10 @@ export default function Home() {
       return;
     }
 
-    // Clear active filter when searching
+    // Clear active filter and conversation type filters when searching
     setActiveFilter("all");
+    setConversationTypeFilter("all");
+    setDmSubFilter("all");
 
     setLoading(true);
     try {
@@ -112,6 +130,44 @@ export default function Home() {
         if (filterAfterDate) {
           const conversationDate = new Date(conversation.createdAt);
           if (conversationDate < cutoffDate) return false;
+        }
+
+        // Exclude conversations with excluded engagement UUIDs
+        if (
+          conversation.engagementUuid &&
+          excludedEngagementUuids.includes(conversation.engagementUuid)
+        ) {
+          return false;
+        }
+        if (
+          conversation.engagements.some((eng) =>
+            excludedEngagementUuids.includes(eng.uuid)
+          )
+        ) {
+          return false;
+        }
+
+        // Exclude paused/complete engagements if toggle is on
+        if (excludePausedComplete) {
+          // For group conversations (single engagement)
+          if (
+            conversation.cometConversationType === "group" &&
+            conversation.engagement &&
+            (conversation.engagement.status === "paused" ||
+              conversation.engagement.status === "complete")
+          ) {
+            return false;
+          }
+          // For DMs (multiple inferred engagements) - exclude only if ALL are paused/complete
+          if (
+            conversation.cometConversationType === "user" &&
+            conversation.engagements.length > 0
+          ) {
+            const allPausedOrComplete = conversation.engagements.every(
+              (eng) => eng.status === "paused" || eng.status === "complete"
+            );
+            if (allPausedOrComplete) return false;
+          }
         }
 
         let matchesEngagement = true;
@@ -229,6 +285,8 @@ export default function Home() {
     messagesCache,
     filterAfterDate,
     cutoffDate,
+    excludedEngagementUuids,
+    excludePausedComplete,
   ]);
 
   const fetchMessages = async (conversationUuid: string) => {
@@ -363,6 +421,33 @@ export default function Home() {
             />
           </div>
 
+          {/* Toggle for excluding paused/complete engagements */}
+          <div className="mb-6">
+            <label className="flex items-center cursor-pointer">
+              <div className="relative">
+                <input
+                  type="checkbox"
+                  checked={excludePausedComplete}
+                  onChange={(e) => setExcludePausedComplete(e.target.checked)}
+                  className="sr-only"
+                />
+                <div
+                  className={`block w-8 h-5 rounded-full transition-colors ${
+                    excludePausedComplete ? "bg-[#059669]" : "bg-gray-300"
+                  }`}
+                ></div>
+                <div
+                  className={`absolute left-0.5 top-0.5 bg-white w-4 h-4 rounded-full transition-transform ${
+                    excludePausedComplete ? "transform translate-x-3" : ""
+                  }`}
+                ></div>
+              </div>
+              <span className="ml-3 text-xs text-gray-700">
+                Exclude paused/complete engagements
+              </span>
+            </label>
+          </div>
+
           {/* Search Button */}
           <button
             onClick={handleSearch}
@@ -383,6 +468,8 @@ export default function Home() {
                   setEngagementSearch("");
                   setUserSearch("");
                   setActiveFilter("recent");
+                  setConversationTypeFilter("all");
+                  setDmSubFilter("all");
                   setLoading(true);
                   try {
                     const response = await fetch("/api/conversations");
@@ -397,6 +484,47 @@ export default function Home() {
                         // Apply date filter if toggle is enabled
                         if (filterAfterDate && createdDate < cutoffDate)
                           return false;
+
+                        // Exclude conversations with excluded engagement UUIDs
+                        if (
+                          conv.engagementUuid &&
+                          excludedEngagementUuids.includes(conv.engagementUuid)
+                        ) {
+                          return false;
+                        }
+                        if (
+                          conv.engagements.some((eng) =>
+                            excludedEngagementUuids.includes(eng.uuid)
+                          )
+                        ) {
+                          return false;
+                        }
+
+                        // Exclude paused/complete engagements if toggle is on
+                        if (excludePausedComplete) {
+                          // For group conversations (single engagement)
+                          if (
+                            conv.cometConversationType === "group" &&
+                            conv.engagement &&
+                            (conv.engagement.status === "paused" ||
+                              conv.engagement.status === "complete")
+                          ) {
+                            return false;
+                          }
+                          // For DMs (multiple inferred engagements) - exclude only if ALL are paused/complete
+                          if (
+                            conv.cometConversationType === "user" &&
+                            conv.engagements.length > 0
+                          ) {
+                            const allPausedOrComplete = conv.engagements.every(
+                              (eng) =>
+                                eng.status === "paused" ||
+                                eng.status === "complete"
+                            );
+                            if (allPausedOrComplete) return false;
+                          }
+                        }
+
                         return createdDate >= sevenDaysAgo;
                       }
                     );
@@ -462,6 +590,8 @@ export default function Home() {
                   setEngagementSearch("");
                   setUserSearch("");
                   setActiveFilter("needs-response");
+                  setConversationTypeFilter("all");
+                  setDmSubFilter("all");
                   setLoading(true);
                   try {
                     // Fetch all conversations
@@ -507,11 +637,56 @@ export default function Home() {
                           if (conversationDate < cutoffDate) return false;
                         }
 
+                        // Exclude conversations with excluded engagement UUIDs
+                        if (
+                          conversation.engagementUuid &&
+                          excludedEngagementUuids.includes(
+                            conversation.engagementUuid
+                          )
+                        ) {
+                          return false;
+                        }
+                        if (
+                          conversation.engagements.some((eng) =>
+                            excludedEngagementUuids.includes(eng.uuid)
+                          )
+                        ) {
+                          return false;
+                        }
+
+                        // Exclude paused/complete engagements if toggle is on
+                        if (excludePausedComplete) {
+                          // For group conversations (single engagement)
+                          if (
+                            conversation.cometConversationType === "group" &&
+                            conversation.engagement &&
+                            (conversation.engagement.status === "paused" ||
+                              conversation.engagement.status === "complete")
+                          ) {
+                            return false;
+                          }
+                          // For DMs (multiple inferred engagements) - exclude only if ALL are paused/complete
+                          if (
+                            conversation.cometConversationType === "user" &&
+                            conversation.engagements.length > 0
+                          ) {
+                            const allPausedOrComplete =
+                              conversation.engagements.every(
+                                (eng) =>
+                                  eng.status === "paused" ||
+                                  eng.status === "complete"
+                              );
+                            if (allPausedOrComplete) return false;
+                          }
+                        }
+
                         const latestMessage = latestMessageMap.get(
                           conversation.uuid
                         );
-                        if (!latestMessage || !latestMessage.sender)
-                          return false;
+                        if (!latestMessage) return false;
+
+                        // If sender is null (system message like 'app_system'), treat as needing response
+                        if (!latestMessage.sender) return true;
 
                         const isMentorLast =
                           latestMessage.sender?.roles?.includes("mentor") ||
@@ -614,10 +789,112 @@ export default function Home() {
         } ${!selectedConversation ? "flex" : "hidden lg:flex"}`}
       >
         <div className="p-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">
-            Conversations{" "}
-            {conversations.length > 0 && `(${conversations.length})`}
-          </h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-gray-900">
+              Conversations{" "}
+              {conversations.length > 0 &&
+                `(${
+                  conversations.filter((c) => {
+                    if (conversationTypeFilter === "all") return true;
+                    if (conversationTypeFilter === "group")
+                      return c.cometConversationType === "group";
+                    if (conversationTypeFilter === "dm") {
+                      if (c.cometConversationType === "group") return false;
+                      // Apply DM sub-filter
+                      if (dmSubFilter === "all") return true;
+                      const roles = c.users.flatMap(
+                        (u) => u.details?.roles || []
+                      );
+                      if (dmSubFilter === "mentor-student") {
+                        return (
+                          roles.includes("mentor") && roles.includes("student")
+                        );
+                      }
+                      if (dmSubFilter === "mentor-guardian") {
+                        return (
+                          roles.includes("mentor") && roles.includes("guardian")
+                        );
+                      }
+                    }
+                    return true;
+                  }).length
+                })`}
+            </h2>
+            {conversations.length > 0 && (
+              <div className="flex gap-1">
+                <button
+                  onClick={() => {
+                    setConversationTypeFilter("all");
+                    setDmSubFilter("all");
+                  }}
+                  className={`px-2 py-1 text-xs rounded transition-colors ${
+                    conversationTypeFilter === "all"
+                      ? "bg-[#059669] text-white"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  }`}
+                >
+                  All
+                </button>
+                <button
+                  onClick={() => {
+                    setConversationTypeFilter("group");
+                    setDmSubFilter("all");
+                  }}
+                  className={`px-2 py-1 text-xs rounded transition-colors ${
+                    conversationTypeFilter === "group"
+                      ? "bg-[#059669] text-white"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  }`}
+                >
+                  Group
+                </button>
+                <button
+                  onClick={() => setConversationTypeFilter("dm")}
+                  className={`px-2 py-1 text-xs rounded transition-colors ${
+                    conversationTypeFilter === "dm"
+                      ? "bg-[#059669] text-white"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  }`}
+                >
+                  DM
+                </button>
+              </div>
+            )}
+          </div>
+          {conversationTypeFilter === "dm" && conversations.length > 0 && (
+            <div className="flex gap-1 mt-2 justify-end">
+              <button
+                onClick={() => setDmSubFilter("all")}
+                className={`px-2 py-1 text-xs rounded transition-colors ${
+                  dmSubFilter === "all"
+                    ? "bg-[#FBC012] text-gray-900"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
+              >
+                All DMs
+              </button>
+              <button
+                onClick={() => setDmSubFilter("mentor-student")}
+                className={`px-2 py-1 text-xs rounded transition-colors ${
+                  dmSubFilter === "mentor-student"
+                    ? "bg-[#FBC012] text-gray-900"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
+              >
+                M:S
+              </button>
+              <button
+                onClick={() => setDmSubFilter("mentor-guardian")}
+                className={`px-2 py-1 text-xs rounded transition-colors ${
+                  dmSubFilter === "mentor-guardian"
+                    ? "bg-[#FBC012] text-gray-900"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
+              >
+                M:G
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="flex-1 overflow-y-auto">
@@ -636,306 +913,339 @@ export default function Home() {
             </div>
           ) : (
             <div className="space-y-0">
-              {conversations.map((conversation) => {
-                const messageCount =
-                  conversationMessageCounts[conversation.uuid] ?? null;
-                const latestMessageDate =
-                  conversationLatestDates[conversation.uuid];
-                const hasNoMessages = messageCount === 0;
-                const isSelected =
-                  selectedConversation?.uuid === conversation.uuid;
-                const daysSince = latestMessageDate
-                  ? getDaysSince(latestMessageDate)
-                  : null;
+              {conversations
+                .filter((conversation) => {
+                  if (conversationTypeFilter === "all") return true;
+                  if (conversationTypeFilter === "group")
+                    return conversation.cometConversationType === "group";
+                  if (conversationTypeFilter === "dm") {
+                    if (conversation.cometConversationType === "group")
+                      return false;
+                    // Apply DM sub-filter
+                    if (dmSubFilter === "all") return true;
+                    const roles = conversation.users.flatMap(
+                      (u) => u.details?.roles || []
+                    );
+                    if (dmSubFilter === "mentor-student") {
+                      return (
+                        roles.includes("mentor") && roles.includes("student")
+                      );
+                    }
+                    if (dmSubFilter === "mentor-guardian") {
+                      return (
+                        roles.includes("mentor") && roles.includes("guardian")
+                      );
+                    }
+                  }
+                  return true;
+                })
+                .map((conversation) => {
+                  const messageCount =
+                    conversationMessageCounts[conversation.uuid] ?? null;
+                  const latestMessageDate =
+                    conversationLatestDates[conversation.uuid];
+                  const hasNoMessages = messageCount === 0;
+                  const isSelected =
+                    selectedConversation?.uuid === conversation.uuid;
+                  const daysSince = latestMessageDate
+                    ? getDaysSince(latestMessageDate)
+                    : null;
 
-                return (
-                  <div
-                    key={conversation.uuid}
-                    onClick={() => selectConversation(conversation)}
-                    className={`relative p-4 cursor-pointer hover:bg-gray-50 transition-colors ${
-                      isSelected
-                        ? "bg-[#FFF8EC] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-1 before:bg-[#FBC012]"
-                        : ""
-                    } ${hasNoMessages ? "opacity-50" : ""}`}
-                  >
-                    <div className="flex justify-between items-start">
-                      {/* Left side */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-2">
-                          {conversation.cometConversationType === "group" ? (
-                            <Users className="h-4 w-4 text-gray-500" />
-                          ) : (
-                            <User className="h-4 w-4 text-gray-500" />
-                          )}
-                          <h3 className="font-medium text-gray-900 text-sm">
-                            {conversation.cometConversationType === "group"
-                              ? "Group Chat"
-                              : "Direct Message"}
-                          </h3>
-                        </div>
+                  return (
+                    <div
+                      key={conversation.uuid}
+                      onClick={() => selectConversation(conversation)}
+                      className={`relative p-4 cursor-pointer hover:bg-gray-50 transition-colors ${
+                        isSelected
+                          ? "bg-[#FFF8EC] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-1 before:bg-[#FBC012]"
+                          : ""
+                      } ${hasNoMessages ? "opacity-50" : ""}`}
+                    >
+                      <div className="flex justify-between items-start">
+                        {/* Left side */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-2">
+                            {conversation.cometConversationType === "group" ? (
+                              <Users className="h-4 w-4 text-gray-500" />
+                            ) : (
+                              <User className="h-4 w-4 text-gray-500" />
+                            )}
+                            <h3 className="font-medium text-gray-900 text-sm">
+                              {conversation.cometConversationType === "group"
+                                ? "Group Chat"
+                                : "Direct Message"}
+                            </h3>
+                          </div>
 
-                        {/* Users */}
-                        <div className="flex flex-wrap gap-1 mb-2">
-                          {conversation.users
-                            .sort((a, b) => {
-                              const aRoles = a.details?.roles || [];
-                              const bRoles = b.details?.roles || [];
+                          {/* Users */}
+                          <div className="flex flex-wrap gap-1 mb-2">
+                            {conversation.users
+                              .sort((a, b) => {
+                                const aRoles = a.details?.roles || [];
+                                const bRoles = b.details?.roles || [];
 
-                              const getRolePriority = (roles: string[]) => {
-                                if (roles.includes("mentor")) return 0;
-                                if (roles.includes("student")) return 1;
-                                if (roles.includes("guardian")) return 2;
-                                return 3;
-                              };
+                                const getRolePriority = (roles: string[]) => {
+                                  if (roles.includes("mentor")) return 0;
+                                  if (roles.includes("student")) return 1;
+                                  if (roles.includes("guardian")) return 2;
+                                  return 3;
+                                };
 
-                              return (
-                                getRolePriority(aRoles) -
-                                getRolePriority(bRoles)
-                              );
-                            })
-                            .map((user, idx) => {
-                              const roles = user.details?.roles || [];
-                              const primaryRole = roles.includes("guardian")
-                                ? "guardian"
-                                : roles.includes("mentor")
-                                ? "mentor"
-                                : roles.includes("student")
-                                ? "student"
-                                : null;
+                                return (
+                                  getRolePriority(aRoles) -
+                                  getRolePriority(bRoles)
+                                );
+                              })
+                              .map((user, idx) => {
+                                const roles = user.details?.roles || [];
+                                const primaryRole = roles.includes("guardian")
+                                  ? "guardian"
+                                  : roles.includes("mentor")
+                                  ? "mentor"
+                                  : roles.includes("student")
+                                  ? "student"
+                                  : null;
 
-                              const roleConfig = {
-                                guardian: { letter: "G" },
-                                mentor: { letter: "M" },
-                                student: { letter: "S" },
-                              };
+                                const roleConfig = {
+                                  guardian: { letter: "G" },
+                                  mentor: { letter: "M" },
+                                  student: { letter: "S" },
+                                };
 
-                              const config = primaryRole
-                                ? roleConfig[
-                                    primaryRole as keyof typeof roleConfig
-                                  ]
-                                : null;
+                                const config = primaryRole
+                                  ? roleConfig[
+                                      primaryRole as keyof typeof roleConfig
+                                    ]
+                                  : null;
 
-                              const isUnknownUser = !user.details?.fullName;
+                                const isUnknownUser = !user.details?.fullName;
 
-                              return (
-                                <div key={idx} className="flex items-center">
-                                  <span
-                                    className={`text-xs px-2 py-1 rounded flex items-center gap-1 ${
-                                      isUnknownUser
-                                        ? "text-gray-400"
-                                        : "bg-gray-100 text-gray-700"
-                                    }`}
-                                    style={
-                                      isUnknownUser
-                                        ? { backgroundColor: "#F3F4F6" }
-                                        : {}
-                                    }
-                                  >
-                                    {user.details?.fullName || "Unknown User"}
-                                    {config && (
-                                      <span
-                                        className={`text-xs font-bold ${
-                                          isUnknownUser
-                                            ? "text-gray-500"
-                                            : "text-black"
-                                        }`}
-                                      >
-                                        {config.letter}
-                                      </span>
-                                    )}
-                                  </span>
-                                </div>
-                              );
-                            })}
-                        </div>
+                                return (
+                                  <div key={idx} className="flex items-center">
+                                    <span
+                                      className={`text-xs px-2 py-1 rounded flex items-center gap-1 ${
+                                        isUnknownUser
+                                          ? "text-gray-400"
+                                          : "bg-gray-100 text-gray-700"
+                                      }`}
+                                      style={
+                                        isUnknownUser
+                                          ? { backgroundColor: "#F3F4F6" }
+                                          : {}
+                                      }
+                                    >
+                                      {user.details?.fullName || "Unknown User"}
+                                      {config && (
+                                        <span
+                                          className={`text-xs font-bold ${
+                                            isUnknownUser
+                                              ? "text-gray-500"
+                                              : "text-black"
+                                          }`}
+                                        >
+                                          {config.letter}
+                                        </span>
+                                      )}
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                          </div>
 
-                        {/* Engagement Info */}
-                        <div className="flex flex-wrap gap-1">
-                          {conversation.engagement?.title ? (
-                            <span
-                              className="inline-flex items-center px-2 py-1 rounded text-xs font-medium text-gray-700"
-                              style={{ backgroundColor: "#FDE68A" }}
-                            >
-                              {conversation.engagement.title}
-                            </span>
-                          ) : (conversation.engagements?.length ?? 0) > 0 ? (
-                            conversation.engagements.map((engagement, idx) => (
+                          {/* Engagement Info */}
+                          <div className="flex flex-wrap gap-1">
+                            {conversation.engagement?.title ? (
                               <span
-                                key={idx}
                                 className="inline-flex items-center px-2 py-1 rounded text-xs font-medium text-gray-700"
                                 style={{ backgroundColor: "#FDE68A" }}
                               >
-                                {engagement.title}
+                                {conversation.engagement.title}
                               </span>
-                            ))
-                          ) : (
-                            <span
-                              className="inline-flex items-center px-2 py-1 rounded text-xs font-medium text-gray-400"
-                              style={{ backgroundColor: "#F3F4F6" }}
-                            >
-                              No engagement found
-                            </span>
-                          )}
+                            ) : (conversation.engagements?.length ?? 0) > 0 ? (
+                              conversation.engagements.map(
+                                (engagement, idx) => (
+                                  <span
+                                    key={idx}
+                                    className="inline-flex items-center px-2 py-1 rounded text-xs font-medium text-gray-700"
+                                    style={{ backgroundColor: "#FDE68A" }}
+                                  >
+                                    {engagement.title}
+                                  </span>
+                                )
+                              )
+                            ) : (
+                              <span
+                                className="inline-flex items-center px-2 py-1 rounded text-xs font-medium text-gray-400"
+                                style={{ backgroundColor: "#F3F4F6" }}
+                              >
+                                No engagement found
+                              </span>
+                            )}
+                          </div>
                         </div>
-                      </div>
 
-                      {/* Right side - Message info */}
-                      <div className="flex flex-col items-end text-xs text-gray-700 ml-4">
-                        {latestMessageDate ? (
-                          <>
-                            <div className="mb-1">
-                              {new Date(latestMessageDate).toLocaleDateString()}
-                            </div>
-                            <div className="mb-1">
-                              {daysSince === 0
-                                ? "Today"
-                                : daysSince === 1
-                                ? "1 day ago"
-                                : `${daysSince} days ago`}
-                            </div>
-                          </>
-                        ) : messageCount === 0 ? (
-                          <>
-                            <div className="mb-1">No messages</div>
-                            <div className="mb-1">-</div>
-                          </>
-                        ) : (
-                          <>
-                            <div className="mb-1">-</div>
-                            <div className="mb-1">-</div>
-                          </>
-                        )}
-                        <div className="font-medium mb-1">
-                          {(() => {
-                            const cachedMessages = Array.isArray(
-                              messagesCache[conversation.uuid]
-                            )
-                              ? messagesCache[conversation.uuid]
-                              : [];
-                            const mentorMessageCount = cachedMessages.filter(
-                              (msg: Message) =>
-                                msg.sender?.roles.includes("mentor")
-                            ).length;
-
-                            const totalCount =
-                              messageCount !== null
-                                ? messageCount === 0
-                                  ? "0"
-                                  : messageCount.toString()
-                                : "-";
-
-                            const mentorPart =
-                              cachedMessages.length > 0 &&
-                              mentorMessageCount > 0
-                                ? ` (${mentorMessageCount})`
-                                : "";
-
-                            return `${totalCount} messages${mentorPart}`;
-                          })()}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Mentor response status - bottom right */}
-                    {(messageCount ?? 0) > 0 &&
-                      (() => {
-                        // Check if we have cached messages for this conversation to determine mentor status
-                        const cachedMessages = Array.isArray(
-                          messagesCache[conversation.uuid]
-                        )
-                          ? messagesCache[conversation.uuid]
-                          : [];
-                        if (cachedMessages.length > 0) {
-                          // Find the latest message
-                          const latestMessage = cachedMessages.reduce(
-                            (latest: Message, current: Message) =>
-                              new Date(current.createdAt) >
-                              new Date(latest.createdAt)
-                                ? current
-                                : latest
-                          );
-
-                          // Check if latest message sender is a mentor
-                          const isMentorLast =
-                            latestMessage.sender?.roles.includes("mentor") ||
-                            false;
-
-                          // Find mentors in this conversation
-                          const mentorUuids = conversation.users
-                            .filter((user) =>
-                              user.details?.roles.includes("mentor")
-                            )
-                            .map((user) => user.uuid);
-
-                          // Check if any mentor has read the latest message
-                          const readByMentor = mentorUuids.some((mentorUuid) =>
-                            latestMessage.readBy?.includes(mentorUuid)
-                          );
-
-                          // Calculate mentor average response time
-                          const responseTimeData =
-                            calculateMentorAverageResponseTime(cachedMessages);
-
-                          return (
-                            <div className="absolute bottom-4 right-4 flex items-center gap-2">
-                              {/* Mentor average response time */}
-                              {responseTimeData && (
-                                <span className="text-xs text-gray-500 font-mono">
-                                  {(() => {
-                                    const hours =
-                                      responseTimeData.averageTimeMs /
-                                      (1000 * 60 * 60);
-                                    if (hours < 1) {
-                                      const minutes =
-                                        responseTimeData.averageTimeMs /
-                                        (1000 * 60);
-                                      return minutes.toFixed(1) + "m";
-                                    } else if (hours > 24) {
-                                      const days = hours / 24;
-                                      return days.toFixed(1) + "d";
-                                    } else {
-                                      return hours.toFixed(1) + "h";
-                                    }
-                                  })()}
-                                </span>
-                              )}
-
-                              {/* Status indicator */}
-                              <div>
-                                {isMentorLast ? (
-                                  // Mentor responded - show single check
-                                  <Check
-                                    className="h-4 w-4"
-                                    style={{ color: "#059669" }}
-                                  />
-                                ) : readByMentor ? (
-                                  // Message read by mentor but no response - show gray dot
-                                  <Circle
-                                    className="h-3 w-3"
-                                    style={{
-                                      color: "#6B7280",
-                                      fill: "#6B7280",
-                                    }}
-                                  />
-                                ) : (
-                                  // Mentor hasn't read - show red dot
-                                  <Circle
-                                    className="h-3 w-3"
-                                    style={{
-                                      color: "#F87171",
-                                      fill: "#F87171",
-                                    }}
-                                  />
-                                )}
+                        {/* Right side - Message info */}
+                        <div className="flex flex-col items-end text-xs text-gray-700 ml-4">
+                          {latestMessageDate ? (
+                            <>
+                              <div className="mb-1">
+                                {new Date(
+                                  latestMessageDate
+                                ).toLocaleDateString()}
                               </div>
-                            </div>
-                          );
-                        }
-                        return null;
-                      })()}
-                  </div>
-                );
-              })}
+                              <div className="mb-1">
+                                {daysSince === 0
+                                  ? "Today"
+                                  : daysSince === 1
+                                  ? "1 day ago"
+                                  : `${daysSince} days ago`}
+                              </div>
+                            </>
+                          ) : messageCount === 0 ? (
+                            <>
+                              <div className="mb-1">No messages</div>
+                              <div className="mb-1">-</div>
+                            </>
+                          ) : (
+                            <>
+                              <div className="mb-1">-</div>
+                              <div className="mb-1">-</div>
+                            </>
+                          )}
+                          <div className="font-medium mb-1">
+                            {(() => {
+                              const cachedMessages = Array.isArray(
+                                messagesCache[conversation.uuid]
+                              )
+                                ? messagesCache[conversation.uuid]
+                                : [];
+                              const mentorMessageCount = cachedMessages.filter(
+                                (msg: Message) =>
+                                  msg.sender?.roles.includes("mentor")
+                              ).length;
+
+                              const totalCount =
+                                messageCount !== null
+                                  ? messageCount === 0
+                                    ? "0"
+                                    : messageCount.toString()
+                                  : "-";
+
+                              const mentorPart =
+                                cachedMessages.length > 0 &&
+                                mentorMessageCount > 0
+                                  ? ` (${mentorMessageCount})`
+                                  : "";
+
+                              return `${totalCount} messages${mentorPart}`;
+                            })()}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Mentor response status - bottom right */}
+                      {(messageCount ?? 0) > 0 &&
+                        (() => {
+                          // Check if we have cached messages for this conversation to determine mentor status
+                          const cachedMessages = Array.isArray(
+                            messagesCache[conversation.uuid]
+                          )
+                            ? messagesCache[conversation.uuid]
+                            : [];
+                          if (cachedMessages.length > 0) {
+                            // Find the latest message
+                            const latestMessage = cachedMessages.reduce(
+                              (latest: Message, current: Message) =>
+                                new Date(current.createdAt) >
+                                new Date(latest.createdAt)
+                                  ? current
+                                  : latest
+                            );
+
+                            // Check if latest message sender is a mentor
+                            const isMentorLast =
+                              latestMessage.sender?.roles.includes("mentor") ||
+                              false;
+
+                            // Find mentors in this conversation
+                            const mentorUuids = conversation.users
+                              .filter((user) =>
+                                user.details?.roles.includes("mentor")
+                              )
+                              .map((user) => user.uuid);
+
+                            // Check if any mentor has read the latest message
+                            const readByMentor = mentorUuids.some(
+                              (mentorUuid) =>
+                                latestMessage.readBy?.includes(mentorUuid)
+                            );
+
+                            // Calculate mentor average response time
+                            const responseTimeData =
+                              calculateMentorAverageResponseTime(
+                                cachedMessages
+                              );
+
+                            return (
+                              <div className="absolute bottom-4 right-4 flex items-center gap-2">
+                                {/* Mentor average response time */}
+                                {responseTimeData && (
+                                  <span className="text-xs text-gray-500 font-mono">
+                                    {(() => {
+                                      const hours =
+                                        responseTimeData.averageTimeMs /
+                                        (1000 * 60 * 60);
+                                      if (hours < 1) {
+                                        const minutes =
+                                          responseTimeData.averageTimeMs /
+                                          (1000 * 60);
+                                        return minutes.toFixed(1) + "m";
+                                      } else if (hours > 24) {
+                                        const days = hours / 24;
+                                        return days.toFixed(1) + "d";
+                                      } else {
+                                        return hours.toFixed(1) + "h";
+                                      }
+                                    })()}
+                                  </span>
+                                )}
+
+                                {/* Status indicator */}
+                                <div>
+                                  {isMentorLast ? (
+                                    // Mentor responded - show single check
+                                    <Check
+                                      className="h-4 w-4"
+                                      style={{ color: "#059669" }}
+                                    />
+                                  ) : readByMentor ? (
+                                    // Message read by mentor but no response - show gray dot
+                                    <Circle
+                                      className="h-3 w-3"
+                                      style={{
+                                        color: "#6B7280",
+                                        fill: "#6B7280",
+                                      }}
+                                    />
+                                  ) : (
+                                    // Mentor hasn't read - show red dot
+                                    <Circle
+                                      className="h-3 w-3"
+                                      style={{
+                                        color: "#F87171",
+                                        fill: "#F87171",
+                                      }}
+                                    />
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
+                    </div>
+                  );
+                })}
             </div>
           )}
         </div>

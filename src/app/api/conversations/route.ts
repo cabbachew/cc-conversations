@@ -86,6 +86,7 @@ export async function GET() {
       select: {
         uuid: true,
         title: true,
+        status: true,
       },
     });
 
@@ -103,6 +104,7 @@ export async function GET() {
       select: {
         uuid: true,
         title: true,
+        status: true,
         users_engagements: {
           select: {
             userUuid: true,
@@ -130,7 +132,7 @@ export async function GET() {
     // Create efficient lookup structures
     const userEngagementLookup = new Map<
       string,
-      { uuid: string; title: string }[]
+      { uuid: string; title: string; status: string }[]
     >();
 
     userEngagementsData.forEach((engagement) => {
@@ -179,10 +181,12 @@ export async function GET() {
           userEngagementLookup.get(key1)!.push({
             uuid: engagement.uuid,
             title: engagement.title,
+            status: engagement.status,
           });
           userEngagementLookup.get(key2)!.push({
             uuid: engagement.uuid,
             title: engagement.title,
+            status: engagement.status,
           });
         }
       }
