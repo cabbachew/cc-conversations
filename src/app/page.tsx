@@ -98,7 +98,7 @@ export default function Home() {
     "all" | "mentor-student" | "mentor-guardian"
   >("all");
   const filterAfterDate = true; // Always filter by date
-  const cutoffDate = useMemo(() => new Date("2025-09-13"), []);
+  const cutoffDate = useMemo(() => new Date("2025-09-16"), []);
   const excludedEngagementUuids = useMemo(
     () => [
       "4296f4f5-bd42-4ea1-b06e-9b41dba8d28e",
@@ -776,7 +776,7 @@ export default function Home() {
           {/* Cutoff Date Info */}
           <div className="mt-8 px-4">
             <p className="text-xs text-gray-500 italic">
-              Cutoff Date: 9/13/2025
+              Cutoff Date: 9/16/2025
             </p>
           </div>
         </div>
